@@ -3,7 +3,7 @@
  * Core Application Logic, Pure Letter Renderer, Firestore State & PDF Export
  */
 
-const STORAGE_KEY = "APG_SYSTEM_V3_STATE";
+const STORAGE_KEY = "APG_SYSTEM_V4_STATE";
 
 // Helper to generate realistic signature Data URLs (SVG encoded as Data URL)
 function createSignatureDataUrl(text, color = "#0c2340") {
@@ -21,11 +21,11 @@ const DEFAULT_SOFIA_SIG = createSignatureDataUrl("Sofia G. Reyes", "#1e293b");
 // Initial Seed State matching Section 6 Data Model
 function getInitialSeedState() {
   return {
-    currentUserUid: "intern-juan",
-    currentScreen: "intern-dashboard", // see navigation router
+    currentUserUid: null,
+    currentScreen: "home", // see navigation router
     selectedRequestIdForReview: "req-2026-003",
     editingRequestId: null,
-    calendarMonthOffset: 0, // 0 = Nov 2026 (current system month)
+    calendarMonthOffset: 0, // 0 = current month
     sidebarCollapsed: false,
 
     settings: {
@@ -453,6 +453,43 @@ function formatShortDate(isoOrYmd) {
   });
 }
 
+/* Current-date helpers (local time) — replaces hardcoded 2026 dates */
+function toYmd(dt) {
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const d = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function todayYmd() {
+  return toYmd(new Date());
+}
+
+function addDaysYmd(ymd, n) {
+  const dt = parseLocalDate(ymd);
+  dt.setDate(dt.getDate() + n);
+  return toYmd(dt);
+}
+
+function currentYear() {
+  return String(new Date().getFullYear());
+}
+
+// Earliest date a request may cover: 7 days back from today
+function getMinFilingDate() {
+  return addDaysYmd(todayYmd(), -7);
+}
+
+function getNextRefNoPreview() {
+  const year = currentYear();
+  const next = (state.counters[year] && state.counters[year].nextRefNo) || 1;
+  return `APG-EL-${year}-${String(next).padStart(4, "0")}`;
+}
+
+function generateRequestId() {
+  return `req-${currentYear()}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+}
+
 function countWeekdaysBetween(startYmd, endYmd) {
   const start = parseLocalDate(startYmd);
   const end = parseLocalDate(endYmd);
@@ -559,10 +596,32 @@ function buildOpeningSentenceHTML(req, highlightVars = true) {
   return `I respectfully request permission to be absent from my ${dutyPhrase} on ${wrap(dateText)}.`;
 }
 
+// Only allow inline image data (drawn/uploaded signatures, photos) as <img> sources
+function safeImageSrc(src) {
+  return typeof src === "string" && /^data:image\/(png|jpe?g|gif|webp|svg\+xml)[;,]/i.test(src) ? src : "";
+}
+
+// What appears above the member's name on the letter, depending on how they signed
+function renderMemberSignatureSlot(req, options = {}) {
+  if (options.blankSignature) return ""; // printed copy for signing by hand
+  const method = req.signatureMethod || "digital";
+  if (method === "wet-upload") {
+    return `<span class="a4-wet-note">Signed by hand · photo of signed letter on file with HR</span>`;
+  }
+  if (method === "wet-paper") {
+    const received = req.paperCopy && req.paperCopy.status === "received";
+    return `<span class="a4-wet-note">Signed by hand · paper copy ${received ? "received by HR" : "to be handed in to HR"}</span>`;
+  }
+  const src = safeImageSrc(req.internSignature);
+  return src
+    ? `<img src="${src}" alt="Member Signature" />`
+    : `<span class="a4-sig-space-placeholder">[Signature required]</span>`;
+}
+
 function renderLockedLetterHTML(req, letterSettings = state.settings.letter, options = {}) {
   const highlightVars = options.highlightVars !== false;
   const filingDateStr = formatStandardDate(
-    (req.submittedAt || req.createdAt || "2026-11-10").slice(0, 10)
+    (req.submittedAt || req.createdAt || todayYmd()).slice(0, 10)
   );
 
   const snapshot = req.snapshot || {
@@ -592,7 +651,7 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
       topStampHTML = `
         <div class="a4-approval-stamp">
           <div class="a4-approval-stamp-title">✓ APPROVED</div>
-          <div class="a4-approval-stamp-ref">REF: ${escapeHtml(req.refNo || "APG-EL-2026-XXXX")}</div>
+          <div class="a4-approval-stamp-ref">REF: ${escapeHtml(req.refNo || `APG-EL-${currentYear()}-XXXX`)}</div>
           <div class="a4-approval-stamp-date">Date: ${escapeHtml(approvedDate)}</div>
         </div>
       `;
@@ -641,11 +700,7 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
           <div class="a4-sig-col">
             <div class="a4-sig-greeting">Sincerely,</div>
             <div class="a4-sig-space">
-              ${
-                req.internSignature
-                  ? `<img src="${req.internSignature}" alt="Intern Signature" />`
-                  : `<span class="a4-sig-space-placeholder">[Intern signature required]</span>`
-              }
+              ${renderMemberSignatureSlot(req, options)}
             </div>
             <div class="a4-person-name">${escapeHtml(snapshot.name)}</div>
             <div class="a4-person-title">${escapeHtml(snapshot.position)}</div>
@@ -657,7 +712,7 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
               ${
                 hrSigToRender
                   ? `<img src="${hrSigToRender}" alt="HR Officer Signature" />`
-                  : `<span class="a4-sig-space-placeholder">${isApproved ? "" : "[Stamped automatically upon HR Approval]"}</span>`
+                  : `<span class="a4-sig-space-placeholder">${isApproved || options.blankSignature ? "" : "[Stamped automatically upon HR Approval]"}</span>`
               }
             </div>
             <div class="a4-person-name">${escapeHtml(letterSettings.signatoryName)}</div>
@@ -678,8 +733,13 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
 function downloadRequestPDF(requestId) {
   const req = state.requests[requestId];
   if (!req) return;
+  printLetter(req);
+}
 
-  // Mount the clean official letter into the dedicated print container
+// Mounts the clean official letter into the dedicated print container and opens
+// the browser's print dialog (print or "Save as PDF"). extraOptions is passed to the
+// letter renderer, e.g. { blankSignature: true } for a copy to sign by hand.
+function printLetter(req, extraOptions = {}) {
   let mount = document.getElementById("print-letter-mount");
   if (!mount) {
     mount = document.createElement("div");
@@ -690,7 +750,8 @@ function downloadRequestPDF(requestId) {
   mount.innerHTML = renderLockedLetterHTML(req, state.settings.letter, {
     highlightVars: false,
     cleanPdf: true,
-    elementId: "print-active-sheet"
+    elementId: "print-active-sheet",
+    ...extraOptions
   });
 
   showToast(`Preparing official letter ready to print (${req.refNo || req.id})...`);
@@ -725,6 +786,13 @@ function showToast(msg) {
   }, 3600);
 }
 
+// Small tag under the status for hand-signed letters that must be handed in to HR
+function renderPaperCopyTag(r) {
+  if (r.signatureMethod !== "wet-paper" || r.status !== "submitted") return "";
+  const received = r.paperCopy && r.paperCopy.status === "received";
+  return `<div style="font-size:11px; margin-top:4px; color:${received ? "#4ade80" : "#fb923c"};">📄 ${received ? "Paper copy received" : "Waiting for paper copy"}</div>`;
+}
+
 function renderStatusPill(status) {
   const labels = {
     draft: "📝 Draft",
@@ -744,22 +812,47 @@ function getCurrentUser() {
 /* ==========================================
    ROLE / DEMO SWITCHER & NAVIGATION
    ========================================== */
-function switchDemoAccount(uidOrAuth) {
-  if (uidOrAuth === "auth-screen") {
-    state.currentUserUid = null;
-    state.currentScreen = "login";
-  } else {
-    state.currentUserUid = uidOrAuth;
-    const u = state.users[uidOrAuth];
-    if (u.role === "hr") {
-      state.currentScreen = "hr-queue";
-    } else {
-      state.currentScreen = "intern-dashboard";
-    }
+const AUTH_SCREENS = ["home", "member-login", "admin-login"];
+
+// Demo bar (persona switcher) is for local testing only.
+// Turn it on with `showDemoBar: true` in firebase-config.js or by adding ?demo=1 to the URL.
+function isDemoMode() {
+  try {
+    if (new URLSearchParams(window.location.search).get("demo") === "1") return true;
+  } catch (e) {
+    /* ignore */
   }
+  return Boolean(window.APG_FIREBASE_CONFIG && window.APG_FIREBASE_CONFIG.showDemoBar);
+}
+
+// Landing screen after sign-in: HR goes to the review queue, members go straight to the form.
+function getHomeScreenForUser(u) {
+  if (!u) return "home";
+  if (u.role === "hr") return "hr-queue";
+  if (u.status !== "active") return "intern-dashboard";
+  return "new-request";
+}
+
+function signInAs(uid) {
+  const u = state.users[uid];
+  if (!u) return;
+  state.currentUserUid = uid;
+  state.currentScreen = getHomeScreenForUser(u);
   state.editingRequestId = null;
   saveState();
   renderApp();
+}
+
+function switchDemoAccount(uidOrAuth) {
+  if (uidOrAuth === "auth-screen") {
+    state.currentUserUid = null;
+    state.currentScreen = "home";
+    state.editingRequestId = null;
+    saveState();
+    renderApp();
+    return;
+  }
+  signInAs(uidOrAuth);
 }
 
 function navigateTo(screen, opts = {}) {
@@ -797,13 +890,13 @@ function renderApp() {
 
   const currentUser = getCurrentUser();
   const pendingCountForHR = Object.values(state.requests).filter((r) => r.status === "submitted").length;
-  const pendingAccountsCount = Object.values(state.users).filter((u) => u.role === "intern" && u.status === "pending").length;
+  const pendingAccountsCount = Object.values(state.users).filter((u) => u.role !== "hr" && u.status === "pending").length;
   const returnedCountForIntern = currentUser
     ? Object.values(state.requests).filter((r) => r.uid === currentUser.uid && r.status === "returned").length
     : 0;
 
-  // Top Demo / Role Switcher Bar
-  const demoBarHTML = `
+  // Top Demo / Role Switcher Bar (local testing only)
+  const demoBarHTML = !isDemoMode() ? "" : `
     <div class="demo-bar no-print">
       <div class="demo-bar-left">
         <span class="demo-badge">Final v1.0 Prototype</span>
@@ -824,7 +917,7 @@ function renderApp() {
           🛡️ HR Officer: Ms. Jean Ashley Chico (${pendingCountForHR} Pending)
         </button>
         <button class="demo-switcher-btn ${!state.currentUserUid ? "active" : ""}" onclick="switchDemoAccount('auth-screen')">
-          🔐 Screen 1: Login / Register
+          🏠 Home (Signed Out)
         </button>
       </div>
       <div>
@@ -833,10 +926,27 @@ function renderApp() {
     </div>
   `;
 
-  // If on Login / Register screen
-  if (!currentUser || state.currentScreen === "login") {
-    root.innerHTML = demoBarHTML + renderLoginScreen();
+  // Signed out: Home → Member sign-in (answer form) or Admin sign-in
+  if (!currentUser) {
+    if (!AUTH_SCREENS.includes(state.currentScreen)) state.currentScreen = "home";
+    const screenHTML =
+      state.currentScreen === "member-login"
+        ? renderLoginScreen("member")
+        : state.currentScreen === "admin-login"
+        ? renderLoginScreen("admin")
+        : renderHomeScreen();
+    root.innerHTML = demoBarHTML + screenHTML;
     return;
+  }
+
+  // Signed in but on a signed-out screen (e.g. after reload): go to their landing screen
+  if (AUTH_SCREENS.includes(state.currentScreen) || state.currentScreen === "login") {
+    state.currentScreen = getHomeScreenForUser(currentUser);
+  }
+  // Members cannot open HR screens and HR cannot open member screens
+  const isHRScreen = String(state.currentScreen).startsWith("hr-");
+  if ((currentUser.role === "hr") !== isHRScreen) {
+    state.currentScreen = getHomeScreenForUser(currentUser);
   }
 
   // Sidebar Items based on Role
@@ -907,7 +1017,7 @@ function renderApp() {
   }
 
   let mainViewHTML = "";
-  if (currentUser.role === "intern" && currentUser.status === "pending") {
+  if (currentUser.role !== "hr" && currentUser.status !== "active") {
     mainViewHTML = renderPendingInternScreen(currentUser);
   } else {
     switch (state.currentScreen) {
@@ -968,6 +1078,15 @@ function renderApp() {
 
         ${navItemsHTML}
 
+        <ul class="nav-list nav-list-signout">
+          <li class="nav-item" onclick="signOut()" title="Sign Out">
+            <div class="nav-item-content">
+              <span class="nav-icon">🚪</span>
+              <span class="nav-label">Sign Out</span>
+            </div>
+          </li>
+        </ul>
+
         <div class="sidebar-footer">
           <div>Locked Template v${escapeHtml(state.settings.letter.templateVersion)}</div>
           <div style="margin-top:4px;">Signatory: ${escapeHtml(state.settings.letter.signatoryName)}</div>
@@ -994,93 +1113,157 @@ function renderApp() {
    SCREEN 1: LOGIN & SELF-REGISTRATION
    (Decision 6: Self-registered interns start as `pending`)
    ========================================== */
-function renderLoginScreen() {
+function renderHomeScreen() {
   return `
-    <div style="min-height: calc(100vh - 42px); display:flex; align-items:center; justify-content:center; padding:24px; background:radial-gradient(circle at 50% 25%, #181510 0%, #08080c 80%);">
-      <div class="card" style="max-width:920px; width:100%; margin:0; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; border:1px solid var(--border-strong); box-shadow:var(--shadow-lg);">
-        <!-- Left: Sign In -->
-        <div style="padding:32px; background:var(--bg-card);">
-          <div style="display:flex; align-items:center; gap:12px; margin-bottom:24px;">
-            <div class="brand-emblem">AP</div>
-            <div>
-              <div style="font-weight:800; color:var(--apg-gold); font-size:16px; letter-spacing:0.04em;">ALPHA PREMIER GROUP</div>
-              <div style="font-size:12px; color:var(--text-muted);">Leave of Absence Portal</div>
-            </div>
-          </div>
-
-          <h2 style="font-size:20px; color:var(--text-main); margin-bottom:6px;">Sign In</h2>
-          <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">
-            Select an account below or sign in with your registered email.
-          </p>
-
-          <form onsubmit="handleLoginSubmit(event)">
-            <div class="form-group">
-              <label class="form-label">Email Address</label>
-              <input type="email" id="login-email" class="form-control" value="juan.delacruz@university.edu.ph" required />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Password</label>
-              <input type="password" class="form-control" value="••••••••••••" required />
-            </div>
-            <button type="submit" class="btn btn-primary" style="width:100%;">Sign In with Firebase Auth</button>
-          </form>
-
-          <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
-            <div style="font-size:12px; font-weight:700; color:var(--apg-gold); margin-bottom:8px; letter-spacing:0.04em;">QUICK DEMO ACCOUNTS:</div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <button class="btn btn-outline btn-sm" onclick="switchDemoAccount('intern-juan')">Intern: Juan Dela Cruz (Active · 480h)</button>
-              <button class="btn btn-outline btn-sm" onclick="switchDemoAccount('hr-chico')">HR Officer: Ms. Jean Ashley Chico</button>
-            </div>
+    <div class="auth-bg">
+      <div class="card home-card">
+        <div class="auth-brand">
+          <div class="brand-emblem">AP</div>
+          <div>
+            <div class="auth-brand-title">ALPHA PREMIER GROUP</div>
+            <div class="auth-brand-sub">Leave of Absence Portal</div>
           </div>
         </div>
 
-        <!-- Right: Intern Self-Registration -->
-        <div style="padding:32px; background:#0b0b10; border-left:1px solid var(--border);">
-          <h2 style="font-size:20px; color:var(--text-main); margin-bottom:6px;">Member Registration</h2>
-          <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:16px;">
-            <strong>Decision #6 Security Policy:</strong> New accounts start as <span class="status-pill status-submitted">pending</span>. HR activates your profile and sets your official ID, Position, Department, and Required Hours so letter variables are never mistyped.
-          </p>
+        <h1 class="home-title">Leave of Absence Request</h1>
+        <p class="home-sub">Choose how you want to continue.</p>
 
-          <form onsubmit="handleSelfRegisterSubmit(event)">
-            <div class="form-group">
-              <label class="form-label">Full Name (for Official Letterhead)</label>
-              <input type="text" id="reg-name" class="form-control" placeholder="e.g., Carlos Miguel Villanueva" required />
-            </div>
-            <div class="form-group">
-              <label class="form-label">University / Work Email</label>
-              <input type="email" id="reg-email" class="form-control" placeholder="carlos.villanueva@alphapremiergroup.com" required />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Password</label>
-              <input type="password" id="reg-pass" class="form-control" placeholder="Minimum 8 characters" required />
-            </div>
-            <button type="submit" class="btn btn-gold" style="width:100%;">Register Account</button>
-          </form>
+        <div class="home-options">
+          <button type="button" class="home-option" onclick="navigateTo('member-login')">
+            <span class="home-option-icon">📝</span>
+            <span class="home-option-title">Answer Absence Form</span>
+            <span class="home-option-desc">For interns and employees. Sign in or register, then fill out and submit your absence letter to HR.</span>
+          </button>
+          <button type="button" class="home-option home-option-admin" onclick="navigateTo('admin-login')">
+            <span class="home-option-icon">🛡️</span>
+            <span class="home-option-title">Login as Admin</span>
+            <span class="home-option-desc">For HR and owners. Review, approve, return or decline submitted forms.</span>
+          </button>
         </div>
       </div>
     </div>
   `;
 }
 
-function handleLoginSubmit(e) {
+function renderLoginScreen(mode = "member") {
+  const isAdmin = mode === "admin";
+  const signInCard = `
+    <div class="auth-pane">
+      <button type="button" class="auth-back" onclick="navigateTo('home')">← Back</button>
+      <div class="auth-brand">
+        <div class="brand-emblem">AP</div>
+        <div>
+          <div class="auth-brand-title">ALPHA PREMIER GROUP</div>
+          <div class="auth-brand-sub">${isAdmin ? "Admin / HR Access" : "Leave of Absence Portal"}</div>
+        </div>
+      </div>
+
+      <h2 class="auth-heading">${isAdmin ? "Admin Sign In" : "Sign In to Answer the Form"}</h2>
+      <p class="auth-text">
+        ${isAdmin ? "Only HR officers and owners can sign in here." : "Interns and employees sign in with their registered email."}
+      </p>
+
+      <form onsubmit="handleLoginSubmit(event, '${isAdmin ? "admin" : "member"}')">
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input type="email" id="login-email" class="form-control" autocomplete="username" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="login-pass" class="form-control" autocomplete="current-password" required />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Sign In</button>
+      </form>
+      ${
+        isAdmin
+          ? `<p class="auth-switch">Not an admin? <a href="#" onclick="navigateTo('member-login'); return false;">Go to the absence form</a></p>`
+          : `<p class="auth-switch">HR or owner? <a href="#" onclick="navigateTo('admin-login'); return false;">Admin sign in</a></p>`
+      }
+    </div>
+  `;
+
+  const registerCard = isAdmin
+    ? ""
+    : `
+    <div class="auth-pane auth-pane-alt">
+      <h2 class="auth-heading">New here? Register</h2>
+      <p class="auth-text">
+        New accounts start as <span class="status-pill status-submitted">pending</span>. HR confirms who you are, then activates your account and sets your official ID number, position and department before you can file a request.
+      </p>
+
+      <form onsubmit="handleSelfRegisterSubmit(event)">
+        <div class="form-group">
+          <label class="form-label">I am an *</label>
+          <select id="reg-type" class="form-control" required>
+            <option value="intern">Intern</option>
+            <option value="employee">Employee</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Full Name (as it should appear on the letter) *</label>
+          <input type="text" id="reg-name" class="form-control" placeholder="e.g., Carlos Miguel Villanueva" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email *</label>
+          <input type="email" id="reg-email" class="form-control" placeholder="name@example.com" autocomplete="username" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password *</label>
+          <input type="password" id="reg-pass" class="form-control" placeholder="Minimum 8 characters" minlength="8" autocomplete="new-password" required />
+        </div>
+        <button type="submit" class="btn btn-gold" style="width:100%;">Register</button>
+      </form>
+    </div>
+  `;
+
+  return `
+    <div class="auth-bg">
+      <div class="card auth-card ${isAdmin ? "auth-card-single" : ""}">
+        ${signInCard}
+        ${registerCard}
+      </div>
+    </div>
+  `;
+}
+
+// NOTE: In local test mode passwords are not checked. Firebase Auth will verify them once connected.
+function handleLoginSubmit(e, mode = "member") {
   e.preventDefault();
   const email = document.getElementById("login-email").value.trim().toLowerCase();
-  const found = Object.values(state.users).find((u) => u.email.toLowerCase() === email);
-  if (found) {
-    switchDemoAccount(found.uid);
-    showToast(`Signed in as ${found.name}`);
-  } else {
-    showToast("No user found with that email. Try registering or clicking a Quick Demo Account.");
+  const found = Object.values(state.users).find((u) => (u.email || "").toLowerCase() === email);
+  if (!found) {
+    showToast(mode === "admin" ? "No admin account found with that email." : "No account found with that email. Register first.");
+    return;
   }
+  if (mode === "admin" && found.role !== "hr") {
+    showToast("This account is not an admin. Use “Answer Absence Form” instead.");
+    return;
+  }
+  if (mode === "member" && found.role === "hr") {
+    showToast("Admin accounts sign in through “Login as Admin”.");
+    return;
+  }
+  if (found.status === "disabled") {
+    showToast("This account has been disabled. Please contact HR.");
+    return;
+  }
+  signInAs(found.uid);
+  showToast(`Signed in as ${found.name}`);
 }
 
 function handleSelfRegisterSubmit(e) {
   e.preventDefault();
   const name = document.getElementById("reg-name").value.trim();
   const email = document.getElementById("reg-email").value.trim();
+  const memberType = document.getElementById("reg-type").value === "employee" ? "employee" : "intern";
   if (!name || !email) return;
 
-  const uid = "intern-" + Date.now();
+  if (Object.values(state.users).some((u) => (u.email || "").toLowerCase() === email.toLowerCase())) {
+    showToast("An account with that email already exists. Please sign in instead.");
+    return;
+  }
+
+  const uid = `${memberType}-${Date.now()}`;
   state.users[uid] = {
     uid,
     name,
@@ -1088,9 +1271,10 @@ function handleSelfRegisterSubmit(e) {
     internId: "",
     position: "",
     department: "",
-    role: "intern",
+    role: memberType,
+    memberType,
     status: "pending",
-    requiredHours: 480,
+    requiredHours: memberType === "intern" ? 480 : 0,
     renderedHours: 0,
     savedSignature: "",
     createdAt: new Date().toISOString()
@@ -1098,8 +1282,17 @@ function handleSelfRegisterSubmit(e) {
   state.currentUserUid = uid;
   state.currentScreen = "intern-dashboard";
   saveState();
-  showToast("Account created with status: PENDING. HR must activate your profile.");
+  showToast("Account created. HR must activate it before you can file a request.");
   renderApp();
+}
+
+function signOut() {
+  state.currentUserUid = null;
+  state.currentScreen = "home";
+  state.editingRequestId = null;
+  saveState();
+  renderApp();
+  showToast("Signed out.");
 }
 
 function renderPendingInternScreen(user) {
@@ -1113,11 +1306,15 @@ function renderPendingInternScreen(user) {
       </p>
       <div style="background:var(--apg-surface-elevated); border:1px solid var(--border); padding:16px; border-radius:8px; text-align:left; font-size:13px; margin-bottom:20px;">
         <div><strong>Current Status:</strong> <span class="status-pill status-submitted">Pending HR Activation</span></div>
-        <div style="margin-top:6px;"><strong>Tip for testing:</strong> Click <strong>"🛡️ HR Officer: Ms. Jean Ashley Chico"</strong> in the top bar → go to <strong>HR Settings & Accounts</strong> → click <strong>Activate & Assign Profile</strong> next to ${escapeHtml(user.name)}!</div>
+        <div style="margin-top:6px;">HR will confirm your identity and activate your ${user.role === "employee" ? "employee" : "intern"} account. Sign in again once you're notified.</div>
       </div>
-      <button class="btn btn-primary" onclick="switchDemoAccount('hr-chico'); navigateTo('hr-settings');">
-        Switch to HR Officer to Activate This Account →
-      </button>
+      ${
+        isDemoMode()
+          ? `<button class="btn btn-primary" onclick="switchDemoAccount('hr-chico'); navigateTo('hr-settings');">
+        Test mode: switch to HR to activate this account →
+      </button>`
+          : `<button class="btn btn-outline" onclick="signOut()">Sign Out</button>`
+      }
     </div>
   `;
 }
@@ -1299,21 +1496,24 @@ function renderNewRequestScreen(user) {
   const editingReq = state.editingRequestId ? state.requests[state.editingRequestId] : null;
   const isRevise = Boolean(editingReq);
 
+  const defaultDate = addDaysYmd(todayYmd(), 1);
   const initialData = editingReq || {
     type: "full",
-    date: "2026-11-16",
-    startDate: "2026-11-16",
-    endDate: "2026-11-17",
+    date: defaultDate,
+    startDate: defaultDate,
+    endDate: addDaysYmd(defaultDate, 1),
     shift: "morning",
     timeRange: "8:00 AM – 12:00 PM",
     reasonCategory: "Academic",
-    reasonDetails: "I have a scheduled consultation with my Capstone Research Adviser at the university campus to finalize our manuscript revisions prior to binding.",
+    reasonDetails: "",
     internSignature: user.savedSignature || "",
+    signatureMethod: "digital",
     status: "draft"
   };
 
-  // Minimum date allowed: 7 days back from current system date (2026-11-10 -> 2026-11-03)
-  const minDateAllowed = "2026-11-03";
+  // Minimum date allowed: 7 days back from today
+  const minDateAllowed = getMinFilingDate();
+  const sigMethod = initialData.signatureMethod || "digital";
 
   const hrRemarksBanner =
     editingReq && editingReq.status === "returned" && editingReq.review
@@ -1381,7 +1581,7 @@ function renderNewRequestScreen(user) {
               <span>Date of Absence *</span>
               <span style="font-weight:400; font-size:11.5px; color:var(--text-light);">Min: ${minDateAllowed} (7 days back max)</span>
             </label>
-            <input type="date" id="f-date" class="form-control" min="${minDateAllowed}" value="${escapeHtml(initialData.date || "2026-11-16")}" />
+            <input type="date" id="f-date" class="form-control" min="${minDateAllowed}" value="${escapeHtml(initialData.date || defaultDate)}" />
           </div>
 
           <!-- Multi-Day Range Picker -->
@@ -1389,11 +1589,11 @@ function renderNewRequestScreen(user) {
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;" class="form-group">
               <div>
                 <label class="form-label">Start Date *</label>
-                <input type="date" id="f-start-date" class="form-control" min="${minDateAllowed}" value="${escapeHtml(initialData.startDate || "2026-11-16")}" />
+                <input type="date" id="f-start-date" class="form-control" min="${minDateAllowed}" value="${escapeHtml(initialData.startDate || defaultDate)}" />
               </div>
               <div>
                 <label class="form-label">End Date *</label>
-                <input type="date" id="f-end-date" class="form-control" min="${minDateAllowed}" value="${escapeHtml(initialData.endDate || "2026-11-17")}" />
+                <input type="date" id="f-end-date" class="form-control" min="${minDateAllowed}" value="${escapeHtml(initialData.endDate || defaultDate)}" />
               </div>
             </div>
             <div class="form-hint" id="multi-days-hint" style="margin-top:-8px; margin-bottom:14px; font-weight:600; color:var(--apg-gold);">
@@ -1462,11 +1662,32 @@ function renderNewRequestScreen(user) {
           `
           }
 
-          <!-- Step 2: Intern Signature (Draw or Upload + Saved Reuse) -->
+          <!-- Step 2: Signature (Digital or Wet) -->
           <div class="form-group" style="border-top:1px solid var(--border); padding-top:14px;">
             <label class="form-label">
-              <span>2. Intern Signature *</span>
-              <div style="display:flex; gap:6px;">
+              <span>2. Signature *</span>
+              <span style="font-weight:400; font-size:11.5px; color:var(--text-light);">Choose how you will sign</span>
+            </label>
+
+            <div class="sig-method-options">
+              <div class="sig-method-option ${sigMethod === "digital" ? "active" : ""}" data-method="digital" onclick="setSignatureMethod('digital')" role="radio" aria-checked="${sigMethod === "digital"}" tabindex="0">
+                <div>
+                  <strong>✍️ Digital signature</strong>
+                  <span>Draw or upload your signature here.</span>
+                </div>
+              </div>
+              <div class="sig-method-option ${sigMethod !== "digital" ? "active" : ""}" data-method="wet" onclick="setSignatureMethod('wet')" role="radio" aria-checked="${sigMethod !== "digital"}" tabindex="0">
+                <div>
+                  <strong>🖊️ Wet signature</strong>
+                  <span>Print the letter and sign it by hand with a pen.</span>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" id="f-sig-method" value="${escapeHtml(sigMethod)}" />
+
+            <!-- Digital signature panel -->
+            <div id="digital-sig-panel" style="${sigMethod === "digital" ? "" : "display:none;"}">
+              <div style="display:flex; gap:6px; justify-content:flex-end; margin-bottom:6px;">
                 ${
                   user.savedSignature
                     ? `<button type="button" class="btn btn-outline btn-sm" onclick="useSavedProfileSignature()">Use Saved Signature</button>`
@@ -1474,20 +1695,47 @@ function renderNewRequestScreen(user) {
                 }
                 <button type="button" class="btn btn-outline btn-sm" onclick="clearSignaturePad()">Clear Pad</button>
               </div>
-            </label>
-
-            <div class="sig-pad-container">
-              <canvas id="intern-sig-canvas" class="sig-canvas" width="400" height="130"></canvas>
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11.5px; color:var(--text-muted); flex-wrap:wrap; gap:8px;">
-                <span>Draw above with mouse/touch OR upload PNG/JPG:</span>
-                <input type="file" id="sig-upload-input" accept="image/png,image/jpeg" style="font-size:11px; max-width:190px;" />
+              <div class="sig-pad-container">
+                <canvas id="intern-sig-canvas" class="sig-canvas" width="400" height="130"></canvas>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11.5px; color:var(--text-muted); flex-wrap:wrap; gap:8px;">
+                  <span>Draw above with mouse/touch OR upload PNG/JPG:</span>
+                  <input type="file" id="sig-upload-input" accept="image/png,image/jpeg" style="font-size:11px; max-width:190px;" />
+                </div>
               </div>
+              <label style="display:flex; align-items:center; gap:6px; font-size:12px; margin-top:8px; cursor:pointer;">
+                <input type="checkbox" id="f-save-sig" checked />
+                Save this signature to my profile for future requests
+              </label>
             </div>
             <input type="hidden" id="f-signature" value="${escapeHtml(initialData.internSignature || "")}" />
-            <label style="display:flex; align-items:center; gap:6px; font-size:12px; margin-top:8px; cursor:pointer;">
-              <input type="checkbox" id="f-save-sig" checked />
-              Save this signature to my profile for future requests
-            </label>
+
+            <!-- Wet signature panel -->
+            <div id="wet-sig-panel" class="wet-panel" style="${sigMethod === "digital" ? "display:none;" : ""}">
+              <ol class="wet-steps">
+                <li>Fill out the form above first.</li>
+                <li><button type="button" class="btn btn-outline btn-sm" onclick="downloadLetterForWetSigning()">🖨️ Print letter to sign</button></li>
+                <li>Print it and sign above your name with a pen.</li>
+                <li>Choose how HR will get the signed letter:</li>
+              </ol>
+              <label style="display:flex; gap:6px; align-items:flex-start; margin-bottom:6px; cursor:pointer;">
+                <input type="radio" name="wet-delivery" value="wet-upload" ${sigMethod !== "wet-paper" ? "checked" : ""} onchange="setSignatureMethod('wet-upload')" />
+                <span><strong>Upload a photo or scan</strong> of the signed letter</span>
+              </label>
+              <label style="display:flex; gap:6px; align-items:flex-start; cursor:pointer;">
+                <input type="radio" name="wet-delivery" value="wet-paper" ${sigMethod === "wet-paper" ? "checked" : ""} onchange="setSignatureMethod('wet-paper')" />
+                <span><strong>Hand in the paper copy</strong> to HR</span>
+              </label>
+
+              <div id="wet-upload-group" style="margin-top:10px; ${sigMethod === "wet-paper" ? "display:none;" : ""}">
+                <input type="file" id="wet-upload-input" accept="image/*" class="form-control" />
+                <div class="form-hint">Take a clear photo of the whole page. Large photos are shrunk automatically.</div>
+                <img id="wet-copy-preview" class="wet-copy-preview" alt="Signed letter preview" ${initialData.wetCopyImage ? `src="${initialData.wetCopyImage}"` : `style="display:none;"`} />
+              </div>
+              <div id="wet-paper-group" class="form-hint" style="margin-top:10px; ${sigMethod === "wet-paper" ? "" : "display:none;"}">
+                Submit this form now, then give the signed paper to HR. HR can approve your request once they receive the paper copy.
+              </div>
+            </div>
+            <input type="hidden" id="f-wet-copy" value="${escapeHtml(initialData.wetCopyImage || "")}" />
           </div>
 
           <!-- Submit / Save Draft Actions -->
@@ -1543,7 +1791,9 @@ function gatherDraftFormObject() {
   const timeRange = document.getElementById("f-timerange")?.value || "";
   const reasonCategory = document.getElementById("f-category")?.value || "Academic";
   const reasonDetails = document.getElementById("f-details")?.value || "";
-  const internSignature = document.getElementById("f-signature")?.value || "";
+  const signatureMethod = document.getElementById("f-sig-method")?.value || "digital";
+  const internSignature = signatureMethod === "digital" ? document.getElementById("f-signature")?.value || "" : "";
+  const wetCopyImage = signatureMethod === "wet-upload" ? document.getElementById("f-wet-copy")?.value || "" : "";
 
   let days = 1;
   let hoursImpact = 8;
@@ -1576,9 +1826,11 @@ function gatherDraftFormObject() {
     hoursImpact,
     reasonCategory,
     reasonDetails,
+    signatureMethod,
     internSignature,
+    wetCopyImage,
     status: "draft",
-    createdAt: "2026-11-10T13:16:00+08:00"
+    createdAt: new Date().toISOString()
   };
 }
 
@@ -1697,6 +1949,30 @@ function initNewRequestInteractivity() {
     canvas.addEventListener("touchend", endDraw);
   }
 
+  // Wet signature: photo/scan of the hand-signed letter
+  const wetInput = document.getElementById("wet-upload-input");
+  if (wetInput) {
+    wetInput.addEventListener("change", async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        showToast("Preparing your signed letter photo...");
+        const dataUrl = await compressImageFile(file);
+        document.getElementById("f-wet-copy").value = dataUrl;
+        const preview = document.getElementById("wet-copy-preview");
+        if (preview) {
+          preview.src = dataUrl;
+          preview.style.display = "block";
+        }
+        updateLiveLetterPreview();
+        showToast("Signed letter photo attached.");
+      } catch (err) {
+        e.target.value = "";
+        showToast(err.message);
+      }
+    });
+  }
+
   // Image upload for signature
   const uploadInput = document.getElementById("sig-upload-input");
   if (uploadInput) {
@@ -1724,6 +2000,90 @@ function initNewRequestInteractivity() {
   }
 
   updateLiveLetterPreview();
+}
+
+/* ==========================================
+   SIGNATURE METHOD: DIGITAL OR WET
+   digital    → drawn/uploaded signature image placed on the letter
+   wet-upload → member prints, signs by hand, uploads a photo/scan
+   wet-paper  → member prints, signs by hand, hands the paper to HR
+   ========================================== */
+function setSignatureMethod(method) {
+  const methodInput = document.getElementById("f-sig-method");
+  if (!methodInput) return;
+
+  let next = method;
+  if (method === "wet") {
+    // Keep the previously chosen wet delivery option, default to upload
+    const checked = document.querySelector('input[name="wet-delivery"]:checked');
+    next = checked ? checked.value : "wet-upload";
+  }
+  methodInput.value = next;
+
+  const isDigital = next === "digital";
+  document.querySelectorAll(".sig-method-option").forEach((el) => {
+    const active = el.getAttribute("data-method") === (isDigital ? "digital" : "wet");
+    el.classList.toggle("active", active);
+    el.setAttribute("aria-checked", String(active));
+  });
+  document.getElementById("digital-sig-panel").style.display = isDigital ? "" : "none";
+  document.getElementById("wet-sig-panel").style.display = isDigital ? "none" : "";
+  document.getElementById("wet-upload-group").style.display = next === "wet-upload" ? "" : "none";
+  document.getElementById("wet-paper-group").style.display = next === "wet-paper" ? "" : "none";
+
+  updateLiveLetterPreview();
+}
+
+// Shrinks a photo so it fits comfortably inside one Firestore document (1 MB limit)
+function compressImageFile(file, maxDim = 1600, maxChars = 700000) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      reject(new Error("Please choose an image file (JPG or PNG)."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That image could not be opened."));
+      img.onload = () => {
+        let dim = maxDim;
+        let quality = 0.75;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          const scale = Math.min(1, dim / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          if (dataUrl.length <= maxChars) {
+            resolve(dataUrl);
+            return;
+          }
+          dim = Math.round(dim * 0.8);
+          quality = Math.max(0.5, quality - 0.07);
+        }
+        reject(new Error("That photo is too large even after shrinking. Try a smaller or clearer photo."));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// Opens the print dialog for the filled-in letter with an empty signature space, ready to sign by hand
+function downloadLetterForWetSigning() {
+  const draft = gatherDraftFormObject();
+  const hasDate = draft.type === "multi" ? draft.startDate && draft.endDate : draft.date;
+  if (!hasDate || draft.reasonDetails.trim().length < 30) {
+    showToast("Fill in the date(s) and a reason of at least 30 characters before printing.");
+    return;
+  }
+  const printable = { ...draft, internSignature: "", status: "draft" };
+  printLetter(printable, { blankSignature: true });
 }
 
 function clearSignaturePad() {
@@ -1775,9 +2135,9 @@ function saveOrSubmitRequest(targetStatus) {
       return;
     }
 
-    // Backdate check: no past dates beyond 7 days back (2026-11-03)
+    // Backdate check: no past dates beyond 7 days back
     const checkDate = draft.type === "multi" ? draft.startDate : draft.date;
-    if (checkDate < "2026-11-03") {
+    if (checkDate < getMinFilingDate()) {
       showToast("Date cannot be more than 7 days in the past.");
       return;
     }
@@ -1788,8 +2148,12 @@ function saveOrSubmitRequest(targetStatus) {
       return;
     }
 
-    if (!draft.internSignature) {
+    if (draft.signatureMethod === "digital" && !draft.internSignature) {
       showToast("Your signature is required before submitting the official letter.");
+      return;
+    }
+    if (draft.signatureMethod === "wet-upload" && !draft.wetCopyImage) {
+      showToast("Upload a photo or scan of your hand-signed letter, or choose to hand in the paper copy.");
       return;
     }
 
@@ -1802,12 +2166,12 @@ function saveOrSubmitRequest(targetStatus) {
 
   // Save signature to profile if checked
   const saveSigCheckbox = document.getElementById("f-save-sig");
-  if (saveSigCheckbox && saveSigCheckbox.checked && draft.internSignature) {
+  if (saveSigCheckbox && saveSigCheckbox.checked && draft.signatureMethod === "digital" && draft.internSignature) {
     state.users[user.uid].savedSignature = draft.internSignature;
   }
 
   const nowIso = new Date().toISOString();
-  const reqId = state.editingRequestId || "req-2026-" + String(Object.keys(state.requests).length + 1).padStart(3, "0");
+  const reqId = state.editingRequestId || generateRequestId();
   const existingReq = state.requests[reqId];
 
   // Clear previous slots if editing an existing request
@@ -1835,6 +2199,11 @@ function saveOrSubmitRequest(targetStatus) {
     id: reqId,
     status: targetStatus,
     review: existingReq ? existingReq.review : null,
+    // Paper copy tracking for hand-signed letters handed in to HR
+    paperCopy:
+      draft.signatureMethod === "wet-paper"
+        ? { status: "awaiting", receivedAt: null, receivedByName: null }
+        : null,
     history,
     createdAt: existingReq ? existingReq.createdAt : nowIso,
     submittedAt: targetStatus === "submitted" ? nowIso : (existingReq ? existingReq.submittedAt : null),
@@ -1929,7 +2298,7 @@ function renderMyRequestsScreen(user) {
                   </div>
                 </td>
                 <td>${escapeHtml(r.reasonCategory)}</td>
-                <td>${renderStatusPill(r.status)}</td>
+                <td>${renderStatusPill(r.status)}${renderPaperCopyTag(r)}</td>
                 <td style="max-width:260px; font-size:12.5px;">
                   ${
                     r.review && r.review.remarks
@@ -2052,7 +2421,7 @@ function renderHRQueueScreen() {
       <div class="stat-card" style="border-left:4px solid #16a34a;">
         <div class="stat-label">Approved Letters</div>
         <div class="stat-value">${approvedCount}</div>
-        <div class="stat-sub">Next Ref: APG-EL-2026-${String(state.counters["2026"].nextRefNo).padStart(4, "0")}</div>
+        <div class="stat-sub">Next Ref: ${getNextRefNoPreview()}</div>
       </div>
       <div class="stat-card" style="border-left:4px solid #ea580c;">
         <div class="stat-label">Returned for Revision</div>
@@ -2137,7 +2506,7 @@ function renderHRQueueScreen() {
                   </div>
                 </td>
                 <td>${escapeHtml(r.reasonCategory)}</td>
-                <td>${renderStatusPill(r.status)}</td>
+                <td>${renderStatusPill(r.status)}${renderPaperCopyTag(r)}</td>
                 <td>
                   <button class="btn ${r.status === "submitted" ? "btn-primary" : "btn-outline"} btn-sm" onclick="navigateTo('hr-review', { reviewRequestId: '${r.id}' })">
                     ${r.status === "submitted" ? "Review & Act →" : "Inspect Letter"}
@@ -2245,10 +2614,17 @@ function renderHRReviewScreen() {
                 <textarea id="hr-review-remarks" class="form-control" rows="3" placeholder="Enter approval note, or specify why the request is being returned for revision or declined..."></textarea>
               </div>
               <div style="background:var(--apg-surface-elevated); border:1px solid var(--border); padding:10px 12px; border-radius:7px; font-size:12px; margin-bottom:14px;">
-                <strong>On Approval Transaction:</strong> Assigns next reference number <code>APG-EL-2026-${String(state.counters["2026"].nextRefNo).padStart(4, "0")}</code> and stamps Ms. Chico's official HR signature onto the letter.
+                <strong>On Approval Transaction:</strong> Assigns next reference number <code>${getNextRefNoPreview()}</code> and stamps ${escapeHtml(state.settings.letter.signatoryName)}'s official HR signature onto the letter.
               </div>
+              ${
+                isAwaitingPaperCopy(req)
+                  ? `<div style="background:rgba(234, 88, 12, 0.15); border:1px solid rgba(251, 146, 60, 0.4); color:#fb923c; padding:8px 12px; border-radius:7px; font-size:12.5px; margin-bottom:10px;">
+                      🖊️ Waiting for the hand-signed paper copy. Mark it as received in <strong>Signature Check</strong> below before approving.
+                    </div>`
+                  : ""
+              }
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="btn btn-success" style="flex:1.2;" onclick="handleHRDecision('${req.id}', 'approved')">
+                <button class="btn btn-success" style="flex:1.2;" onclick="handleHRDecision('${req.id}', 'approved')" ${isAwaitingPaperCopy(req) ? "disabled" : ""}>
                   ✓ Approve & Sign Letter
                 </button>
                 <button class="btn btn-warning" style="flex:1;" onclick="handleHRDecision('${req.id}', 'returned')">
@@ -2275,6 +2651,8 @@ function renderHRReviewScreen() {
             }
           </div>
         </div>
+
+        ${renderSignatureCheckCard(req)}
 
         <!-- Request Details -->
         <div class="card">
@@ -2359,10 +2737,151 @@ function renderHRReviewScreen() {
   `;
 }
 
+/* ==========================================
+   HR SIGNATURE CHECK (identity verification aid)
+   ========================================== */
+function isAwaitingPaperCopy(req) {
+  return req.signatureMethod === "wet-paper" && !(req.paperCopy && req.paperCopy.status === "received");
+}
+
+function renderSignatureCheckCard(req) {
+  const method = req.signatureMethod || "digital";
+  const member = state.users[req.uid] || {};
+  const methodLabel = {
+    digital: "✍️ Digital signature",
+    "wet-upload": "🖊️ Wet signature · photo/scan uploaded",
+    "wet-paper": "🖊️ Wet signature · paper copy handed in"
+  }[method];
+
+  // Earlier signatures from the same person, for side-by-side comparison
+  const references = [];
+  const seen = new Set();
+  const addRef = (src, label) => {
+    const safe = safeImageSrc(src);
+    if (safe && !seen.has(safe)) {
+      seen.add(safe);
+      references.push({ src: safe, label });
+    }
+  };
+  if (method === "digital") seen.add(safeImageSrc(req.internSignature));
+  addRef(member.savedSignature, "Saved on profile");
+  Object.values(state.requests)
+    .filter((r) => r.uid === req.uid && r.id !== req.id && r.status !== "draft")
+    .sort((a, b) => (b.submittedAt || "").localeCompare(a.submittedAt || ""))
+    .forEach((r) => {
+      if (references.length < 4 && (r.signatureMethod || "digital") === "digital") {
+        addRef(r.internSignature, `Request ${formatShortDate(r.submittedAt || r.createdAt)}`);
+      }
+    });
+
+  let mainHTML = "";
+  if (method === "digital") {
+    const src = safeImageSrc(req.internSignature);
+    const sameAsProfile = src && src === safeImageSrc(member.savedSignature);
+    mainHTML = src
+      ? `<div class="sig-compare-grid"><div class="sig-compare-item is-current"><img src="${src}" alt="Signature on this request" />This request</div></div>
+         ${sameAsProfile ? `<div class="form-hint" style="margin-top:6px;">Same image as the signature saved on this person's profile.</div>` : ""}`
+      : `<div style="color:#f87171;">No signature on this request.</div>`;
+  } else if (method === "wet-upload") {
+    const src = safeImageSrc(req.wetCopyImage);
+    mainHTML = src
+      ? `<img src="${src}" alt="Photo of hand-signed letter" class="wet-copy-preview" style="cursor:zoom-in;" onclick="openWetCopyModal('${req.id}')" />
+         <div class="form-hint">Click the photo to view it full size.</div>`
+      : `<div style="color:#f87171;">No photo was uploaded.</div>`;
+  } else {
+    const pc = req.paperCopy || { status: "awaiting" };
+    mainHTML =
+      pc.status === "received"
+        ? `<div style="margin-bottom:8px;"><span class="status-pill status-approved">📄 Paper copy received</span>
+             <span style="font-size:12px; color:var(--text-muted);"> by ${escapeHtml(pc.receivedByName || "HR")} on ${formatShortDate(pc.receivedAt)}</span></div>
+           ${
+             req.status === "submitted"
+               ? `<button class="btn btn-outline btn-sm" onclick="markPaperCopyReceived('${req.id}', false)">Undo</button>`
+               : ""
+           }`
+        : `<div style="margin-bottom:8px;"><span class="status-pill status-submitted">📄 Waiting for paper copy</span></div>
+           ${
+             req.status === "submitted"
+               ? `<button class="btn btn-success btn-sm" onclick="markPaperCopyReceived('${req.id}', true)">✓ Mark paper copy received</button>`
+               : ""
+           }`;
+  }
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🔏 Signature Check</span>
+        <span style="font-size:11.5px; color:var(--text-muted);">${methodLabel}</span>
+      </div>
+      <div class="card-body" style="font-size:13px;">
+        ${mainHTML}
+        <div style="margin-top:14px; font-weight:700; font-size:12px; color:var(--text-muted);">
+          COMPARE WITH EARLIER SIGNATURES FROM ${escapeHtml((req.snapshot?.name || "this member").toUpperCase())}
+        </div>
+        ${
+          references.length
+            ? `<div class="sig-compare-grid" style="margin-top:6px;">
+                ${references
+                  .map((r) => `<div class="sig-compare-item"><img src="${r.src}" alt="${escapeHtml(r.label)}" />${escapeHtml(r.label)}</div>`)
+                  .join("")}
+              </div>`
+            : `<div class="form-hint">No earlier signatures on file yet.</div>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+function markPaperCopyReceived(reqId, received) {
+  const req = state.requests[reqId];
+  const hrUser = getCurrentUser();
+  if (!req || !hrUser || hrUser.role !== "hr") return;
+  const nowIso = new Date().toISOString();
+  req.paperCopy = received
+    ? { status: "received", receivedAt: nowIso, receivedByName: hrUser.name }
+    : { status: "awaiting", receivedAt: null, receivedByName: null };
+  req.updatedAt = nowIso;
+  req.history.push({
+    status: req.status,
+    byUid: hrUser.uid,
+    byName: hrUser.name,
+    remarks: received ? "Hand-signed paper copy received." : "Paper copy marked as not yet received.",
+    at: nowIso
+  });
+  saveState();
+  showToast(received ? "Paper copy marked as received. You can now approve." : "Paper copy set back to waiting.");
+  renderApp();
+}
+
+function openWetCopyModal(reqId) {
+  const req = state.requests[reqId];
+  const modalRoot = document.getElementById("modal-root");
+  const src = req && safeImageSrc(req.wetCopyImage);
+  if (!src || !modalRoot) return;
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeLetterModal()">
+      <div class="modal-box">
+        <div class="preview-toolbar" style="border-radius:0;">
+          <span>🖊️ <strong>HAND-SIGNED LETTER</strong> · ${escapeHtml(req.snapshot?.name)}</span>
+          <button class="btn btn-outline btn-sm" style="background:transparent; color:#fff; border-color:rgba(255,255,255,0.4);" onclick="closeLetterModal()">✕ Close</button>
+        </div>
+        <div style="padding:16px; background:#e2e8f0; text-align:center;">
+          <img src="${src}" alt="Photo of hand-signed letter" style="max-width:100%; height:auto; background:#fff;" />
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function handleHRDecision(reqId, newStatus) {
   const req = state.requests[reqId];
   const hrUser = getCurrentUser();
   if (!req || !hrUser || hrUser.role !== "hr") return;
+
+  if (newStatus === "approved" && isAwaitingPaperCopy(req)) {
+    showToast("Mark the hand-signed paper copy as received before approving.");
+    return;
+  }
 
   const remarksEl = document.getElementById("hr-review-remarks");
   const remarks = remarksEl ? remarksEl.value.trim() : "";
@@ -2378,7 +2897,8 @@ function handleHRDecision(reqId, newStatus) {
   if (newStatus === "approved") {
     // Firestore Approval Transaction Simulation:
     // 1. Pull next reference number from counters/{year}
-    const year = "2026";
+    const year = currentYear();
+    if (!state.counters[year]) state.counters[year] = { nextRefNo: 1 };
     const seq = state.counters[year].nextRefNo;
     state.counters[year].nextRefNo = seq + 1;
     const refNo = `APG-EL-${year}-${String(seq).padStart(4, "0")}`;
@@ -2434,7 +2954,8 @@ function handleHRDecision(reqId, newStatus) {
    (Month Grid of Absences across all interns)
    ========================================== */
 function renderHRCalendarScreen() {
-  const baseDate = new Date(2026, 10 + (state.calendarMonthOffset || 0), 1); // Nov 2026 default
+  const now = new Date();
+  const baseDate = new Date(now.getFullYear(), now.getMonth() + (state.calendarMonthOffset || 0), 1); // current month default
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const monthLabel = baseDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -2641,7 +3162,7 @@ function renderHRSettingsScreen() {
                 </div>
                 <div>
                   <label style="font-size:11px; font-weight:700; color:var(--text-muted);">ID NUMBER</label>
-                  <input type="text" id="u-id-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.internId)}" placeholder="e.g. APG-INT-2026-025 or APG-EMP-001" />
+                  <input type="text" id="u-id-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.internId)}" placeholder="e.g. APG-INT-${currentYear()}-025 or APG-EMP-001" />
                 </div>
                 <div style="grid-column: span 2;">
                   <label style="font-size:11px; font-weight:700; color:var(--text-muted);">DEPARTMENT</label>

@@ -1332,3 +1332,290 @@ canvas.sig-canvas {
     padding: 0 !important;
   }
 }
+
+/* ==========================================
+   HOME, SIGN-IN & SIGNATURE OPTIONS
+   ========================================== */
+.auth-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: radial-gradient(circle at 50% 25%, #181510 0%, #08080c 80%);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.auth-brand-title {
+  font-weight: 800;
+  color: var(--apg-gold);
+  letter-spacing: 0.04em;
+  font-size: 16px;
+}
+
+.auth-brand-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.home-card {
+  max-width: 720px;
+  width: 100%;
+  margin: 0;
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+}
+
+.home-title {
+  font-size: 24px;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.home-sub {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+
+.home-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.home-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 20px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--apg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+
+.home-option:hover,
+.home-option:focus-visible {
+  border-color: var(--apg-gold);
+  box-shadow: var(--shadow-gold);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.home-option-admin {
+  background: var(--apg-surface-elevated);
+}
+
+.home-option-icon {
+  font-size: 28px;
+}
+
+.home-option-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--apg-gold);
+}
+
+.home-option-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.auth-card {
+  max-width: 920px;
+  width: 100%;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.auth-card-single {
+  max-width: 440px;
+  grid-template-columns: 1fr;
+}
+
+.auth-pane {
+  padding: 32px;
+  background: var(--bg-card);
+}
+
+.auth-pane-alt {
+  background: #0b0b10;
+  border-left: 1px solid var(--border);
+}
+
+.auth-back {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 14px;
+}
+
+.auth-back:hover {
+  color: var(--apg-gold);
+}
+
+.auth-heading {
+  font-size: 20px;
+  color: var(--text-main);
+  margin-bottom: 6px;
+}
+
+.auth-text {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+
+.auth-switch {
+  margin-top: 16px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.auth-switch a {
+  color: var(--apg-gold);
+  font-weight: 700;
+}
+
+.nav-list.nav-list-signout {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+}
+
+/* Signature method picker */
+.sig-method-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sig-method-option {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12.5px;
+  background: var(--apg-card);
+}
+
+.sig-method-option.active {
+  border-color: var(--apg-gold);
+  background: var(--apg-gold-glow);
+}
+
+.sig-method-option strong {
+  display: block;
+  color: var(--apg-gold);
+  font-size: 13px;
+}
+
+.sig-method-option span {
+  color: var(--text-muted);
+}
+
+.wet-panel {
+  border: 1px dashed var(--border-strong);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--apg-surface-elevated);
+  font-size: 12.5px;
+}
+
+.wet-steps {
+  margin: 6px 0 10px 18px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.wet-copy-preview {
+  max-width: 100%;
+  max-height: 240px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-top: 8px;
+  display: block;
+  background: #ffffff;
+}
+
+/* HR signature verification */
+.sig-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.sig-compare-item {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px;
+  background: var(--apg-card);
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.sig-compare-item img {
+  width: 100%;
+  height: 60px;
+  object-fit: contain;
+  display: block;
+  margin-bottom: 4px;
+  background: #ffffff; /* signatures are dark ink */
+  border-radius: 4px;
+}
+
+.sig-compare-item.is-current {
+  border: 2px solid var(--apg-gold);
+}
+
+.a4-wet-note {
+  font-size: 11px;
+  font-style: italic;
+  color: #475569;
+  border: 1px dashed #94a3b8;
+  padding: 6px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+@media (max-width: 760px) {
+  .home-options,
+  .auth-card,
+  .sig-method-options {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-pane-alt {
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .home-card,
+  .auth-pane {
+    padding: 22px;
+  }
+}

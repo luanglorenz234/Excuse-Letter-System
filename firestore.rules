@@ -19,17 +19,20 @@ service cloud.firestore {
       return isSignedIn() && getUserData().role == 'hr' && getUserData().status == 'active';
     }
 
-    function isActiveIntern() {
-      return isSignedIn() && getUserData().role == 'intern' && getUserData().status == 'active';
+    // Interns and employees can both file absence requests
+    function isActiveMember() {
+      return isSignedIn()
+        && getUserData().role in ['intern', 'employee']
+        && getUserData().status == 'active';
     }
 
     // 1. users/{uid}
-    // Intern reads own doc and updates only name & savedSignature.
+    // Member (intern/employee) reads own doc and updates only name & savedSignature.
     // HR reads all and updates profile fields + status. Nobody changes their own role.
     match /users/{uid} {
       allow read: if isOwner(uid) || isHR();
       allow create: if isOwner(uid)
-                    && request.resource.data.role == 'intern'
+                    && request.resource.data.role in ['intern', 'employee']
                     && request.resource.data.status == 'pending';
       allow update: if (isOwner(uid)
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'savedSignature', 'updatedAt']))
@@ -38,26 +41,26 @@ service cloud.firestore {
     }
 
     // 2. requests/{id}
-    // Intern: create own; read own; update own only while draft or returned, or submitted -> withdrawn.
-    // HR: read all; update only status, review, history, refNo, updatedAt.
+    // Member: create own; read own; update own only while draft or returned, or submitted -> withdrawn.
+    // HR: read all; update only status, review, history, refNo, paperCopy, updatedAt.
     match /requests/{requestId} {
       allow read: if isHR() || (isSignedIn() && resource.data.uid == request.auth.uid);
 
-      allow create: if isActiveIntern()
+      allow create: if isActiveMember()
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.status in ['draft', 'submitted']
                     && request.resource.data.refNo == null;
 
       allow update: if (
-        // Intern updating own draft or returned request
-        (isActiveIntern()
+        // Member updating own draft or returned request
+        (isActiveMember()
          && resource.data.uid == request.auth.uid
          && resource.data.status in ['draft', 'returned']
          && request.resource.data.status in ['draft', 'submitted']
          && request.resource.data.refNo == resource.data.refNo)
         ||
-        // Intern withdrawing a submitted request
-        (isActiveIntern()
+        // Member withdrawing a submitted request
+        (isActiveMember()
          && resource.data.uid == request.auth.uid
          && resource.data.status == 'submitted'
          && request.resource.data.status == 'withdrawn'
@@ -65,7 +68,7 @@ service cloud.firestore {
         ||
         // HR reviewing request (Approve / Return / Decline)
         (isHR()
-         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'review', 'history', 'refNo', 'updatedAt']))
+         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'review', 'history', 'refNo', 'paperCopy', 'updatedAt']))
       );
     }
 
@@ -73,7 +76,7 @@ service cloud.firestore {
     // Duplicate guard: {uid}_{yyyy-mm-dd}_{am|pm}
     match /absenceSlots/{slotId} {
       allow read: if isSignedIn();
-      allow create: if isActiveIntern()
+      allow create: if isActiveMember()
                     && request.resource.data.uid == request.auth.uid;
       allow delete: if (isSignedIn() && resource.data.uid == request.auth.uid) || isHR();
     }
