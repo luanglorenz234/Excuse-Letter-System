@@ -2368,7 +2368,9 @@ function withdrawSubmittedRequest(reqId) {
 /* ==========================================
    SCREEN 5: HR REVIEW QUEUE & ANALYTICS + CSV
    ========================================== */
-function renderHRQueueScreen() {
+// All non-draft requests (pending first) and the subset matching the HR queue filters.
+// Shared by the queue screen and the CSV export so both always show the same rows.
+function getHRQueueRequests() {
   const statusFilter = window.hrFilterStatus || "all";
   const reasonFilter = window.hrFilterReason || "all";
   const deptFilter = window.hrFilterDept || "all";
@@ -2388,6 +2390,12 @@ function renderHRQueueScreen() {
     if (deptFilter !== "all" && r.snapshot?.department !== deptFilter) return false;
     return true;
   });
+
+  return { allReqs, filtered, statusFilter, reasonFilter, deptFilter };
+}
+
+function renderHRQueueScreen() {
+  const { allReqs, filtered, statusFilter, reasonFilter, deptFilter } = getHRQueueRequests();
 
   // Analytics counts
   const pendingCount = allReqs.filter((r) => r.status === "submitted").length;
@@ -2529,7 +2537,11 @@ function renderHRQueueScreen() {
 }
 
 function exportFilteredRequestsCSV() {
-  const allReqs = Object.values(state.requests).filter((r) => r.status !== "draft");
+  const allReqs = getHRQueueRequests().filtered;
+  if (allReqs.length === 0) {
+    showToast("No requests match the current filters.");
+    return;
+  }
   const headers = ["RefNo", "RequestID", "MemberName", "MemberID", "Position", "Department", "Type", "DateOrRange", "Shift", "ReasonCategory", "Status", "ReviewedBy", "ReviewRemarks"];
   const rows = allReqs.map((r) => [
     r.refNo || "",
@@ -2544,13 +2556,19 @@ function exportFilteredRequestsCSV() {
     r.reasonCategory,
     r.status,
     r.review?.byName || "",
-    (r.review?.remarks || "").replace(/"/g, '""')
+    r.review?.remarks || ""
   ]);
 
+  // Quote every cell, escape quotes, and stop spreadsheet apps treating text as formulas
+  const csvCell = (value) => {
+    let text = String(value ?? "");
+    if (/^[=+\-@]/.test(text)) text = "'" + text;
+    return `"${text.replace(/"/g, '""')}"`;
+  };
   const csvContent =
     headers.join(",") +
     "\n" +
-    rows.map((row) => row.map((cell) => `"${cell}"`).join(",")).join("\n");
+    rows.map((row) => row.map(csvCell).join(",")).join("\n");
 
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
