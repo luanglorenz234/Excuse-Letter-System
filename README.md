@@ -18,3 +18,10 @@ This project implements the **Final Plan v1.0** for the **Alpha Premier Group Le
 6. **HR Review Screen (`renderHRReviewScreen`)** — Side-by-side rendered A4 letter preview beside request metadata, member hours & past absence history, immutable audit trail timeline, and **Approve / Return for Revision / Decline** transaction actions.
 7. **HR Attendance Calendar (`renderHRCalendarScreen`)** — Interactive monthly grid showing absent interns per day (`[FULL]`, `[AM]`, `[PM]`).
 8. **HR Settings (`renderHRSettingsScreen`)** — Manages `settings/letter` (Signatory Name/Title, Subject line, Address block, Apology/Closing paragraphs, HR signature, and `attachmentsEnabled` feature flag) and activates/edits Intern profiles (`users/{uid}`).
+
+## Temporary Test Logins
+Until Firebase Auth is connected, sign-in is checked in the browser. Two test accounts are defined in `temp-login.js`:
+- **HR / admin** — use **Login as Admin**
+- **Intern** — use **Answer Absence Form**
+
+Accounts created through the register form store a hashed password in that browser only. Remove `temp-login.js` (and its `<script>` tag in `index.html`) once Firebase Auth is in place. Never put real passwords in that file: anyone can read it.

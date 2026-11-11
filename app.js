@@ -1191,14 +1191,10 @@ function renderHomeScreen() {
 function fillDemoCredentials(mode = "member") {
   const emailInput = document.getElementById("login-email");
   const passInput = document.getElementById("login-pass");
-  if (emailInput && passInput) {
-    if (mode === "admin") {
-      emailInput.value = "jachico@alphapremier.com";
-      passInput.value = "demo1234";
-    } else {
-      emailInput.value = "demo@intern.com";
-      passInput.value = "demo1234";
-    }
+  const account = getTempAccounts().find((a) => a.role === (mode === "admin" ? "hr" : "intern"));
+  if (emailInput && passInput && account) {
+    emailInput.value = account.email;
+    passInput.value = account.password;
   }
 }
 
@@ -1237,7 +1233,7 @@ function renderLoginScreen(mode = "member") {
             </button>
           </div>
           <div style="color:var(--text-muted); font-size:11px;">
-            Demo email: <strong style="color:var(--text-main);">demo@intern.com</strong> · password: any
+            Demo email: <strong style="color:var(--text-main);">demo@intern.com</strong> · Auto-fill enters the test password
           </div>
         `
             : `
@@ -1250,7 +1246,7 @@ function renderLoginScreen(mode = "member") {
             </button>
           </div>
           <div style="color:var(--text-muted); font-size:11px;">
-            Admin email: <strong style="color:var(--text-main);">jachico@alphapremier.com</strong> · password: any
+            Admin email: <strong style="color:var(--text-main);">jachico@alphapremier.com</strong> · Auto-fill enters the test password
           </div>
         `
         }
@@ -1263,7 +1259,7 @@ function renderLoginScreen(mode = "member") {
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
-          <input type="password" id="login-pass" class="form-control" autocomplete="current-password" placeholder="Any demo password" required />
+          <input type="password" id="login-pass" class="form-control" autocomplete="current-password" placeholder="Password" required />
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%;">Sign In</button>
       </form>
@@ -1319,26 +1315,58 @@ function renderLoginScreen(mode = "member") {
   `;
 }
 
-// NOTE: In local test mode passwords are not checked. Firebase Auth will verify them once connected.
-function handleLoginSubmit(e, mode = "member") {
+/* ==========================================
+   TEMPORARY LOGIN (until Firebase Auth is connected)
+   - The HR and intern test accounts in temp-login.js are checked directly.
+   - Self-registered accounts store a SHA-256 hash of their password in this
+     browser only. Firebase Auth will replace all of this.
+   ========================================== */
+function getTempAccounts() {
+  return Array.isArray(window.APG_TEMP_ACCOUNTS) ? window.APG_TEMP_ACCOUNTS : [];
+}
+
+async function hashPassword(password) {
+  if (window.crypto && window.crypto.subtle && window.TextEncoder) {
+    const digest = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
+    return "sha256:" + Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  // Fallback for browsers without Web Crypto (e.g. pages opened from file://)
+  let h = 0x811c9dc5;
+  for (const ch of password) {
+    h ^= ch.codePointAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return "fnv:" + h.toString(16);
+}
+
+async function verifyPassword(user, password) {
+  const temp = getTempAccounts().find((a) => a.uid === user.uid);
+  if (temp) return password === temp.password;
+  if (!user.passwordHash) return false; // sample accounts without a password cannot sign in
+  return (await hashPassword(password)) === user.passwordHash;
+}
+
+async function handleLoginSubmit(e, mode = "member") {
   e.preventDefault();
-  const rawEmail = (document.getElementById("login-email").value || "").trim().toLowerCase();
+  let email = (document.getElementById("login-email").value || "").trim().toLowerCase();
+  const password = document.getElementById("login-pass").value;
 
-  // Convenient demo aliases for instant testing
-  if (mode === "member" && (rawEmail === "demo" || rawEmail === "intern" || rawEmail === "demo@intern.com" || rawEmail === "intern@demo.com")) {
-    signInAs("intern-juan");
-    showToast("Signed in as Demo Intern: Juan Miguel Dela Cruz");
-    return;
-  }
-  if (mode === "admin" && (rawEmail === "admin" || rawEmail === "hr" || rawEmail === "demo@admin.com" || rawEmail === "admin@demo.com")) {
-    signInAs("hr-chico");
-    showToast("Signed in as HR Admin: Ms. Jean Ashley Chico");
-    return;
-  }
+  // Demo shortcuts: typing "demo"/"intern" or "admin"/"hr" picks the test account,
+  // but the test password from temp-login.js is still required.
+  const memberAliases = ["demo", "intern", "demo@intern.com", "intern@demo.com"];
+  const adminAliases = ["admin", "hr", "demo@admin.com", "admin@demo.com"];
+  const aliasRole = mode === "member" && memberAliases.includes(email) ? "intern" : mode === "admin" && adminAliases.includes(email) ? "hr" : null;
+  const aliasAccount = aliasRole && getTempAccounts().find((a) => a.role === aliasRole);
+  if (aliasAccount) email = aliasAccount.email.toLowerCase();
 
-  const found = Object.values(state.users).find((u) => (u.email || "").toLowerCase() === rawEmail);
-  if (!found) {
-    showToast(mode === "admin" ? "No admin account found with that email. Use jachico@alphapremier.com" : "No account found with that email. Use demo@intern.com or register.");
+  const temp = getTempAccounts().find((a) => (a.email || "").toLowerCase() === email);
+  const found = temp
+    ? state.users[temp.uid]
+    : Object.values(state.users).find((u) => (u.email || "").toLowerCase() === email);
+
+  // Same message for unknown email and wrong password, so emails can't be guessed
+  if (!found || !(await verifyPassword(found, password))) {
+    showToast("Incorrect email or password.");
     return;
   }
   if (mode === "admin" && found.role !== "hr") {
@@ -1357,17 +1385,26 @@ function handleLoginSubmit(e, mode = "member") {
   showToast(`Signed in as ${found.name}`);
 }
 
-function handleSelfRegisterSubmit(e) {
+async function handleSelfRegisterSubmit(e) {
   e.preventDefault();
   const name = document.getElementById("reg-name").value.trim();
   const email = document.getElementById("reg-email").value.trim();
+  const password = document.getElementById("reg-pass").value;
   const memberType = document.getElementById("reg-type").value === "employee" ? "employee" : "intern";
   if (!name || !email) return;
+  if (password.length < 8) {
+    showToast("Password must be at least 8 characters.");
+    return;
+  }
 
-  if (Object.values(state.users).some((u) => (u.email || "").toLowerCase() === email.toLowerCase())) {
+  const emailTaken =
+    Object.values(state.users).some((u) => (u.email || "").toLowerCase() === email.toLowerCase()) ||
+    getTempAccounts().some((a) => (a.email || "").toLowerCase() === email.toLowerCase());
+  if (emailTaken) {
     showToast("An account with that email already exists. Please sign in instead.");
     return;
   }
+  const passwordHash = await hashPassword(password);
 
   const uid = `${memberType}-${Date.now()}`;
   state.users[uid] = {
@@ -1383,6 +1420,7 @@ function handleSelfRegisterSubmit(e) {
     requiredHours: memberType === "intern" ? 480 : 0,
     renderedHours: 0,
     savedSignature: "",
+    passwordHash, // TEMPORARY: removed once Firebase Auth handles passwords
     createdAt: new Date().toISOString()
   };
   state.currentUserUid = uid;
