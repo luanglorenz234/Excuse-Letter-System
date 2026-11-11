@@ -689,6 +689,14 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+textarea.form-control {
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  resize: vertical;
+}
+
 .form-control:focus {
   outline: none;
   border-color: var(--apg-gold-bright);
@@ -878,8 +886,8 @@ table.data-table tr:hover {
 /* Official APPROVED Stamp & Reference Box on Approved Letters */
 .a4-approval-stamp {
   position: absolute;
-  top: 180px;
-  right: 92px;
+  top: 212px;
+  right: 94px;
   border: 2px solid #15803d;
   color: #15803d;
   padding: 6px 12px;
@@ -910,11 +918,11 @@ table.data-table tr:hover {
   color: #166534;
 }
 
-/* Status watermark for unapproved letters */
+/* Status watermark for unapproved letters - placed below Date row to avoid overlapping */
 .a4-status-watermark {
   position: absolute;
-  top: 180px;
-  right: 92px;
+  top: 216px;
+  right: 94px;
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 10px;
@@ -923,7 +931,7 @@ table.data-table tr:hover {
   text-transform: uppercase;
   border: 1.5px dashed #94a3b8;
   color: #64748b;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.9);
   z-index: 20;
 }
 
@@ -936,6 +944,14 @@ table.data-table tr:hover {
   display: flex;
   flex-direction: column;
   height: 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.a4-letter-content > * {
+  min-width: 0; /* Prevents flex children from overflowing parent margin width */
+  max-width: 100%;
   box-sizing: border-box;
 }
 
@@ -946,6 +962,7 @@ table.data-table tr:hover {
   align-items: flex-start;
   margin-bottom: 30px;
   gap: 20px;
+  width: 100%;
 }
 
 .a4-address-text {
@@ -953,6 +970,8 @@ table.data-table tr:hover {
   line-height: 1.45;
   color: #000000;
   white-space: pre-line;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .a4-date-text {
@@ -961,6 +980,7 @@ table.data-table tr:hover {
   font-weight: 500;
   white-space: nowrap;
   padding-right: 6px;
+  flex-shrink: 0;
 }
 
 /* Subject Line */
@@ -970,6 +990,8 @@ table.data-table tr:hover {
   color: #000000;
   margin-bottom: 22px;
   letter-spacing: -0.01em;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Salutation */
@@ -979,13 +1001,22 @@ table.data-table tr:hover {
   margin-bottom: 16px;
 }
 
-/* Paragraphs */
+/* Paragraphs - Strict margin containment with automatic line wrapping */
 .a4-body-p {
   font-size: 13.5px;
   line-height: 1.5;
   color: #000000;
   margin-bottom: 16px;
   text-align: justify;
+  text-justify: inter-word;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: pre-line;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
 .a4-var-highlight {
@@ -993,6 +1024,10 @@ table.data-table tr:hover {
   padding: 0 2px;
   border-radius: 2px;
   border-bottom: 1px dashed #b58517;
+  display: inline;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Dual Signatures Section */
