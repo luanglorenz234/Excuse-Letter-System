@@ -11,7 +11,7 @@
 window.APG_FIREBASE_CONFIG = {
   useLiveFirebase: false,
   // Local testing only: shows the persona switcher bar at the top (or add ?demo=1 to the URL)
-  showDemoBar: false,
+  showDemoBar: true,
   config: {
     apiKey: "YOUR_API_KEY",
     authDomain: "alpha-premier-ojt.firebaseapp.com",

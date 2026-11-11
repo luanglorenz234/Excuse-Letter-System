@@ -78,6 +78,21 @@ function getInitialSeedState() {
         savedSignature: DEFAULT_JUAN_SIG,
         createdAt: "2026-09-01T08:30:00+08:00"
       },
+      "demo-intern": {
+        uid: "intern-juan",
+        name: "Juan Miguel Dela Cruz",
+        email: "demo@intern.com",
+        internId: "APG-INT-2026-014",
+        position: "HR/Marketing Associate Intern",
+        department: "Marketing & HR",
+        role: "intern",
+        memberType: "intern",
+        status: "active",
+        requiredHours: 480,
+        renderedHours: 240,
+        savedSignature: DEFAULT_JUAN_SIG,
+        createdAt: "2026-09-01T08:30:00+08:00"
+      },
       "intern-sofia": {
         uid: "intern-sofia",
         name: "Sofia Gabrielle Reyes",
@@ -378,16 +393,21 @@ function getInitialSeedState() {
 let state = null;
 
 function loadState() {
+  const seed = getInitialSeedState();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      // Ensure seed users & essential structures exist even if loaded from older localStorage
+      parsed.users = { ...seed.users, ...(parsed.users || {}) };
+      parsed.settings = parsed.settings || seed.settings;
+      parsed.requests = parsed.requests || seed.requests;
+      return parsed;
     }
   } catch (e) {
     console.warn("Could not read state from localStorage", e);
   }
-  const initial = getInitialSeedState();
-  return initial;
+  return seed;
 }
 
 function saveState(nextState) {
@@ -814,15 +834,20 @@ function getCurrentUser() {
    ========================================== */
 const AUTH_SCREENS = ["home", "member-login", "admin-login"];
 
-// Demo bar (persona switcher) is for local testing only.
-// Turn it on with `showDemoBar: true` in firebase-config.js or by adding ?demo=1 to the URL.
+// Demo bar (persona switcher) is for local testing.
+// Enabled by default in prototype / local file / test mode, or toggle with `showDemoBar` in firebase-config.js.
 function isDemoMode() {
   try {
-    if (new URLSearchParams(window.location.search).get("demo") === "1") return true;
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("demo") === "1" || p.get("demo") === "true") return true;
+    if (p.get("demo") === "0" || p.get("demo") === "false") return false;
   } catch (e) {
     /* ignore */
   }
-  return Boolean(window.APG_FIREBASE_CONFIG && window.APG_FIREBASE_CONFIG.showDemoBar);
+  if (window.APG_FIREBASE_CONFIG && typeof window.APG_FIREBASE_CONFIG.showDemoBar === "boolean") {
+    return window.APG_FIREBASE_CONFIG.showDemoBar;
+  }
+  return true;
 }
 
 // Landing screen after sign-in: HR goes to the review queue, members go straight to the form.
@@ -955,10 +980,10 @@ function renderApp() {
     navItemsHTML = `
       <div class="nav-section-label">${currentUser.role === "employee" ? "Employee Portal" : "Intern Portal"}</div>
       <ul class="nav-list">
-        <li class="nav-item ${state.currentScreen === "intern-dashboard" ? "active" : ""}" onclick="navigateTo('intern-dashboard')" title="Dashboard & Hours">
+        <li class="nav-item ${state.currentScreen === "intern-dashboard" ? "active" : ""}" onclick="navigateTo('intern-dashboard')" title="Dashboard">
           <div class="nav-item-content">
             <span class="nav-icon">📊</span>
-            <span class="nav-label">Dashboard & Hours</span>
+            <span class="nav-label">Dashboard</span>
           </div>
         </li>
         <li class="nav-item ${state.currentScreen === "new-request" ? "active" : ""}" onclick="navigateTo('new-request', { editRequestId: null })" title="New Absence Request">
@@ -1128,6 +1153,24 @@ function renderHomeScreen() {
         <h1 class="home-title">Leave of Absence Request</h1>
         <p class="home-sub">Choose how you want to continue.</p>
 
+        <!-- Quick 1-Click Demo Buttons for Testing PDF & Formatting -->
+        <div class="demo-quick-banner" style="margin-bottom: 22px; padding: 14px 18px; background: rgba(212, 163, 67, 0.08); border: 1px solid rgba(212, 163, 67, 0.35); border-radius: 12px; text-align: left;">
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold-primary); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span>⚡ QUICK DEMO ACCESS (1-CLICK TEST)</span>
+          </div>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 10px 0;">
+            Instantly test the PDF export, letter margin formatting, and live preview without manual sign-up:
+          </p>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-gold" style="font-size: 12px; padding: 8px 16px; cursor: pointer;" onclick="signInAs('intern-juan')">
+              👨‍💼 Test as Active Intern (Juan Dela Cruz)
+            </button>
+            <button type="button" class="btn btn-outline" style="font-size: 12px; padding: 8px 16px; cursor: pointer;" onclick="signInAs('hr-chico')">
+              🛡️ Test as HR Admin (Jean Ashley Chico)
+            </button>
+          </div>
+        </div>
+
         <div class="home-options">
           <button type="button" class="home-option" onclick="navigateTo('member-login')">
             <span class="home-option-icon">📝</span>
@@ -1143,6 +1186,20 @@ function renderHomeScreen() {
       </div>
     </div>
   `;
+}
+
+function fillDemoCredentials(mode = "member") {
+  const emailInput = document.getElementById("login-email");
+  const passInput = document.getElementById("login-pass");
+  if (emailInput && passInput) {
+    if (mode === "admin") {
+      emailInput.value = "jachico@alphapremier.com";
+      passInput.value = "demo1234";
+    } else {
+      emailInput.value = "demo@intern.com";
+      passInput.value = "demo1234";
+    }
+  }
 }
 
 function renderLoginScreen(mode = "member") {
@@ -1163,14 +1220,50 @@ function renderLoginScreen(mode = "member") {
         ${isAdmin ? "Only HR officers and owners can sign in here." : "Interns and employees sign in with their registered email."}
       </p>
 
+      <!-- 1-Click Demo Shortcut -->
+      <div style="margin-bottom: 16px; padding: 12px 14px; background: rgba(212, 163, 67, 0.08); border: 1px solid rgba(212, 163, 67, 0.28); border-radius: 9px; font-size: 12px;">
+        <div style="font-weight: 700; color: var(--gold-primary); margin-bottom: 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;">
+          ⚡ Instant Demo Access:
+        </div>
+        ${
+          !isAdmin
+            ? `
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+            <button type="button" class="btn btn-gold" style="font-size:11.5px; padding:6px 12px;" onclick="signInAs('intern-juan')">
+              👨‍💼 Enter as Intern (Juan Dela Cruz)
+            </button>
+            <button type="button" class="btn btn-outline" style="font-size:11.5px; padding:6px 12px;" onclick="fillDemoCredentials('member')">
+              Auto-fill Form
+            </button>
+          </div>
+          <div style="color:var(--text-muted); font-size:11px;">
+            Demo email: <strong style="color:var(--text-main);">demo@intern.com</strong> · password: any
+          </div>
+        `
+            : `
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+            <button type="button" class="btn btn-gold" style="font-size:11.5px; padding:6px 12px;" onclick="signInAs('hr-chico')">
+              🛡️ Enter as HR Admin (Ms. Chico)
+            </button>
+            <button type="button" class="btn btn-outline" style="font-size:11.5px; padding:6px 12px;" onclick="fillDemoCredentials('admin')">
+              Auto-fill Form
+            </button>
+          </div>
+          <div style="color:var(--text-muted); font-size:11px;">
+            Admin email: <strong style="color:var(--text-main);">jachico@alphapremier.com</strong> · password: any
+          </div>
+        `
+        }
+      </div>
+
       <form onsubmit="handleLoginSubmit(event, '${isAdmin ? "admin" : "member"}')">
         <div class="form-group">
           <label class="form-label">Email Address</label>
-          <input type="email" id="login-email" class="form-control" autocomplete="username" required />
+          <input type="email" id="login-email" class="form-control" autocomplete="username" placeholder="${isAdmin ? "jachico@alphapremier.com" : "demo@intern.com"}" required />
         </div>
         <div class="form-group">
           <label class="form-label">Password</label>
-          <input type="password" id="login-pass" class="form-control" autocomplete="current-password" required />
+          <input type="password" id="login-pass" class="form-control" autocomplete="current-password" placeholder="Any demo password" required />
         </div>
         <button type="submit" class="btn btn-primary" style="width:100%;">Sign In</button>
       </form>
@@ -1229,10 +1322,23 @@ function renderLoginScreen(mode = "member") {
 // NOTE: In local test mode passwords are not checked. Firebase Auth will verify them once connected.
 function handleLoginSubmit(e, mode = "member") {
   e.preventDefault();
-  const email = document.getElementById("login-email").value.trim().toLowerCase();
-  const found = Object.values(state.users).find((u) => (u.email || "").toLowerCase() === email);
+  const rawEmail = (document.getElementById("login-email").value || "").trim().toLowerCase();
+
+  // Convenient demo aliases for instant testing
+  if (mode === "member" && (rawEmail === "demo" || rawEmail === "intern" || rawEmail === "demo@intern.com" || rawEmail === "intern@demo.com")) {
+    signInAs("intern-juan");
+    showToast("Signed in as Demo Intern: Juan Miguel Dela Cruz");
+    return;
+  }
+  if (mode === "admin" && (rawEmail === "admin" || rawEmail === "hr" || rawEmail === "demo@admin.com" || rawEmail === "admin@demo.com")) {
+    signInAs("hr-chico");
+    showToast("Signed in as HR Admin: Ms. Jean Ashley Chico");
+    return;
+  }
+
+  const found = Object.values(state.users).find((u) => (u.email || "").toLowerCase() === rawEmail);
   if (!found) {
-    showToast(mode === "admin" ? "No admin account found with that email." : "No account found with that email. Register first.");
+    showToast(mode === "admin" ? "No admin account found with that email. Use jachico@alphapremier.com" : "No account found with that email. Use demo@intern.com or register.");
     return;
   }
   if (mode === "admin" && found.role !== "hr") {
@@ -1754,7 +1860,10 @@ function renderNewRequestScreen(user) {
       <div class="preview-sticky">
         <div class="preview-toolbar">
           <span>📄 <strong>LIVE A4 LETTERHEAD PREVIEW</strong> — Locked Company Format</span>
-          <span style="color:#fde68a;">Gold highlights = Intern variables</span>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button type="button" class="btn btn-gold btn-sm" style="font-size:11px; padding:3px 10px;" onclick="printCurrentDraftLetter()">🖨️ Test Print / PDF</button>
+            <span style="color:#fde68a;">Gold highlights = Variables</span>
+          </div>
         </div>
         <div class="preview-stage" id="live-a4-stage">
           <!-- Populated dynamically by updateLiveLetterPreview() -->
@@ -2072,6 +2181,13 @@ function compressImageFile(file, maxDim = 1600, maxChars = 700000) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+// Opens the print dialog for the live draft letter (or save-as-PDF)
+function printCurrentDraftLetter() {
+  const draft = gatherDraftFormObject();
+  if (!draft) return;
+  printLetter(draft);
 }
 
 // Opens the print dialog for the filled-in letter with an empty signature space, ready to sign by hand
