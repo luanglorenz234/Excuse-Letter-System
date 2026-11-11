@@ -1360,7 +1360,15 @@ canvas.sig-canvas {
     z-index: 2 !important;
   }
 
-  /* 5. Clean print styling */
+  /* 5. Clean letter print styling - pure official letter without approved/status signs */
+  .a4-approval-stamp,
+  .a4-status-watermark,
+  .clean-pdf-render .a4-approval-stamp,
+  .clean-pdf-render .a4-status-watermark {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
   .clean-pdf-render .a4-var-highlight,
   .a4-var-highlight {
     background: transparent !important;

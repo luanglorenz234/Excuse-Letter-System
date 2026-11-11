@@ -585,21 +585,24 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
     : null;
 
   let topStampHTML = "";
-  if (isApproved) {
-    const approvedDate = req.review && req.review.at ? formatShortDate(req.review.at) : filingDateStr;
-    topStampHTML = `
-      <div class="a4-approval-stamp">
-        <div class="a4-approval-stamp-title">✓ APPROVED</div>
-        <div class="a4-approval-stamp-ref">REF: ${escapeHtml(req.refNo || "APG-EL-2026-XXXX")}</div>
-        <div class="a4-approval-stamp-date">Date: ${escapeHtml(approvedDate)}</div>
-      </div>
-    `;
-  } else if (req.status && req.status !== "draft") {
-    topStampHTML = `
-      <div class="a4-status-watermark">
-        STATUS: ${escapeHtml(req.status.toUpperCase())}
-      </div>
-    `;
+  // Decision: Final PDF/print output is strictly a clean official letter without the approved stamp
+  if (!options.cleanPdf) {
+    if (isApproved) {
+      const approvedDate = req.review && req.review.at ? formatShortDate(req.review.at) : filingDateStr;
+      topStampHTML = `
+        <div class="a4-approval-stamp">
+          <div class="a4-approval-stamp-title">✓ APPROVED</div>
+          <div class="a4-approval-stamp-ref">REF: ${escapeHtml(req.refNo || "APG-EL-2026-XXXX")}</div>
+          <div class="a4-approval-stamp-date">Date: ${escapeHtml(approvedDate)}</div>
+        </div>
+      `;
+    } else if (req.status && req.status !== "draft") {
+      topStampHTML = `
+        <div class="a4-status-watermark">
+          STATUS: ${escapeHtml(req.status.toUpperCase())}
+        </div>
+      `;
+    }
   }
 
   return `
