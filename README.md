@@ -19,6 +19,29 @@ This project implements the **Final Plan v1.0** for the **Alpha Premier Group Le
 7. **HR Attendance Calendar (`renderHRCalendarScreen`)** — Interactive monthly grid showing absent interns per day (`[FULL]`, `[AM]`, `[PM]`).
 8. **HR Settings (`renderHRSettingsScreen`)** — Manages `settings/letter` (Signatory Name/Title, Subject line, Address block, Apology/Closing paragraphs, HR signature, and `attachmentsEnabled` feature flag) and activates/edits Intern profiles (`users/{uid}`).
 
+## Run It Locally (no Firebase needed)
+The app runs entirely in your browser. All data is saved in that browser's `localStorage`, so nothing needs to be installed or connected.
+
+1. Download or clone this repository.
+2. Start a small local web server in the project folder (recommended, so the print/PDF and images behave like a real site):
+   ```bash
+   python -m http.server 5173
+   ```
+   Then open <http://localhost:5173>. You can also just double-click `index.html`.
+3. Sign in with one of the test logins below, or use the **demo bar** at the top to switch between people in one click (Juan, Sofia, John, Mark, Kevs, Carlos, the pending intern Maria, and HR).
+4. **↺ Reset Seed Data** in the demo bar clears everything you entered and restores the sample data.
+
+`firebase-config.js` keeps `useLiveFirebase: false` for local use. Set `showDemoBar: false` to hide the demo bar.
+
+### What to try
+| Who | What you can do |
+| --- | --- |
+| Intern / employee | File a full-day, half-day or multi-day request; sign digitally (draw or upload) or by hand (upload a photo, or hand in the paper copy); save as draft; edit a draft, a returned letter, **or a request still waiting for HR**; withdraw a pending request; print / save the approved letter as PDF. |
+| Group (same reason) | In **New Request → Who is absent?**, choose **Group (same reason)**. Add people from the list (e.g. John, Mark and Kevs) or type in someone who has no account. Up to 6 people per letter. With a digital signature each person signs on their own pad; with a wet signature everyone signs the printed letter. The letter switches to "We … our" wording and shows every signature. The request also appears in each listed person's **My Requests** (view only). |
+| HR | Review queue with filters and CSV export (group requests list everyone), approve / return / decline, mark paper copies received, compare signatures, attendance calendar (group entries show "Juan +3"), edit the letter wording (including the group wording) and activate new members. |
+
+The duplicate-date guard covers everyone on a group letter: if John already has a pending or approved absence that day, the group request is blocked and names him.
+
 ## Temporary Test Logins
 Until Firebase Auth is connected, sign-in is checked in the browser. Two test accounts are defined in `temp-login.js`:
 - **HR / admin** — use **Login as Admin**

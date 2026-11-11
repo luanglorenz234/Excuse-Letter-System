@@ -846,8 +846,6 @@ table.data-table tr:hover {
   box-sizing: border-box;
 }
 
-}
-
 /* Official APPROVED Stamp & Reference Box on Approved Letters */
 .a4-approval-stamp {
   position: absolute;
@@ -1618,4 +1616,149 @@ canvas.sig-canvas {
   .auth-pane {
     padding: 22px;
   }
+}
+
+/* ==========================================
+   GROUP REQUESTS (several people, one letter)
+   ========================================== */
+.group-panel {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--apg-surface-elevated);
+}
+
+.group-member-card {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: var(--bg-card);
+}
+
+.group-member-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.group-member-info {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.group-member-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.group-manual-fields {
+  display: grid;
+  gap: 6px;
+}
+
+.group-member-sig {
+  margin-top: 8px;
+}
+
+.group-sig-canvas {
+  width: 100%;
+  height: 90px;
+  touch-action: none;
+  background: #ffffff;
+  border-radius: 6px;
+  cursor: crosshair;
+}
+
+.group-member-sig-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.group-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.group-add-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.group-empty {
+  font-size: 12px;
+  color: var(--text-light);
+  padding: 6px 0 10px;
+}
+
+.group-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--apg-gold);
+  margin-top: 3px;
+}
+
+.group-review-list {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.group-review-list ul {
+  margin: 6px 0 0 18px;
+  padding: 0;
+}
+
+.group-review-list li {
+  margin-bottom: 3px;
+}
+
+/* Group signatures on the A4 letter: 3 per row, HR in the next cell */
+.a4-group-signatures {
+  margin-top: 18px;
+}
+
+.a4-group-sig-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  column-gap: 24px;
+  row-gap: 12px;
+  align-items: end;
+}
+
+.a4-group-sig {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.a4-group-signatures .a4-sig-space {
+  height: 44px;
+}
+
+.a4-group-signatures .a4-sig-space img {
+  max-height: 40px;
+  max-width: 100%;
+}
+
+.a4-group-signatures .a4-person-name {
+  font-size: 12.5px;
+}
+
+.a4-group-signatures .a4-person-title {
+  font-size: 11.5px;
+}
+
+.a4-group-signatures .a4-wet-note {
+  padding: 3px 6px;
+  font-size: 10.5px;
 }

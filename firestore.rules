@@ -41,10 +41,14 @@ service cloud.firestore {
     }
 
     // 2. requests/{id}
-    // Member: create own; read own; update own only while draft or returned, or submitted -> withdrawn.
+    // Member: create own; read own (or any group request listing them in memberUids);
+    // update own while draft, returned or still submitted (waiting for HR), or submitted -> withdrawn.
     // HR: read all; update only status, review, history, refNo, paperCopy, updatedAt.
     match /requests/{requestId} {
-      allow read: if isHR() || (isSignedIn() && resource.data.uid == request.auth.uid);
+      allow read: if isHR()
+                  || (isSignedIn()
+                      && (resource.data.uid == request.auth.uid
+                          || request.auth.uid in resource.data.get('memberUids', [])));
 
       allow create: if isActiveMember()
                     && request.resource.data.uid == request.auth.uid
@@ -52,10 +56,10 @@ service cloud.firestore {
                     && request.resource.data.refNo == null;
 
       allow update: if (
-        // Member updating own draft or returned request
+        // Member editing own draft, returned or still-pending request
         (isActiveMember()
          && resource.data.uid == request.auth.uid
-         && resource.data.status in ['draft', 'returned']
+         && resource.data.status in ['draft', 'returned', 'submitted']
          && request.resource.data.status in ['draft', 'submitted']
          && request.resource.data.refNo == resource.data.refNo)
         ||

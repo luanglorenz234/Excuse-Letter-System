@@ -18,6 +18,15 @@ const DEFAULT_HR_SIG = createSignatureDataUrl("Jean Ashley Chico", "#0c2340");
 const DEFAULT_JUAN_SIG = createSignatureDataUrl("Juan M. Dela Cruz", "#1e3a8a");
 const DEFAULT_SOFIA_SIG = createSignatureDataUrl("Sofia G. Reyes", "#1e293b");
 
+// Group letter wording (several people filing one letter for the same reason)
+const DEFAULT_GROUP_APOLOGY =
+  "We sincerely apologize for any inconvenience our absence may cause and assure you that we will make every effort to catch up on any missed responsibilities upon our return.";
+const DEFAULT_GROUP_THANKS =
+  "Thank you for your understanding and consideration. We appreciate your support regarding this matter.";
+
+// Most people on one letter (the person filing + others). Keeps the letter on a single A4 page.
+const MAX_GROUP_SIZE = 6;
+
 // Initial Seed State matching Section 6 Data Model
 function getInitialSeedState() {
   return {
@@ -38,6 +47,9 @@ function getInitialSeedState() {
         addressBlock: "SUITE 3104C Philippine Stock Exchange Centre,\nTektite East Tower, Exchange Road, Ortigas\nPasig City 1605",
         apologyParagraph: "I sincerely apologize for any inconvenience my absence may cause and assure you that I will make every effort to catch up on any missed responsibilities upon my return.",
         thankYouParagraph: "Thank you for your understanding and consideration. I appreciate your support regarding this matter.",
+        // Used when several interns/employees file one letter together
+        apologyParagraphGroup: DEFAULT_GROUP_APOLOGY,
+        thankYouParagraphGroup: DEFAULT_GROUP_THANKS,
         hrSignature: DEFAULT_HR_SIG,
         templateVersion: "1.0",
         attachmentsEnabled: false
@@ -91,6 +103,51 @@ function getInitialSeedState() {
         requiredHours: 480,
         renderedHours: 240,
         savedSignature: DEFAULT_JUAN_SIG,
+        createdAt: "2026-09-01T08:30:00+08:00"
+      },
+      "intern-john": {
+        uid: "intern-john",
+        name: "John Paolo Santos",
+        email: "john.santos@university.edu.ph",
+        internId: "APG-INT-2026-021",
+        position: "HR/Marketing Associate Intern",
+        department: "Marketing & HR",
+        role: "intern",
+        memberType: "intern",
+        status: "active",
+        requiredHours: 480,
+        renderedHours: 0,
+        savedSignature: "",
+        createdAt: "2026-09-01T08:30:00+08:00"
+      },
+      "intern-mark": {
+        uid: "intern-mark",
+        name: "Mark Anthony Villanueva",
+        email: "mark.villanueva@university.edu.ph",
+        internId: "APG-INT-2026-022",
+        position: "Operations & Finance Intern",
+        department: "Operations",
+        role: "intern",
+        memberType: "intern",
+        status: "active",
+        requiredHours: 480,
+        renderedHours: 0,
+        savedSignature: "",
+        createdAt: "2026-09-01T08:30:00+08:00"
+      },
+      "intern-kevs": {
+        uid: "intern-kevs",
+        name: "Kevin Ramos (Kevs)",
+        email: "kevin.ramos@university.edu.ph",
+        internId: "APG-INT-2026-023",
+        position: "IT Support Intern",
+        department: "Operations",
+        role: "intern",
+        memberType: "intern",
+        status: "active",
+        requiredHours: 480,
+        renderedHours: 0,
+        savedSignature: "",
         createdAt: "2026-09-01T08:30:00+08:00"
       },
       "intern-sofia": {
@@ -564,21 +621,78 @@ function computeSlotKeysForRequest(uid, reqData) {
   return slots;
 }
 
+/* ==========================================
+   GROUP REQUESTS (several people, one letter, same reason)
+   req.isGroup + req.groupMembers = [{ uid|null, name, internId, position,
+   department, memberType, signature }]. The person filing is NOT in
+   groupMembers; they stay in req.uid / req.snapshot / req.internSignature.
+   ========================================== */
+function isGroupRequest(req) {
+  return Boolean(req && req.isGroup && Array.isArray(req.groupMembers) && req.groupMembers.length > 0);
+}
+
+// Everyone on the letter, person filing first
+function getRequestMembers(req) {
+  const s = req.snapshot || {};
+  const filer = {
+    uid: req.uid,
+    name: s.name,
+    internId: s.internId,
+    position: s.position,
+    department: s.department,
+    memberType: req.memberType,
+    signature: req.internSignature,
+    isFiler: true
+  };
+  return isGroupRequest(req) ? [filer, ...req.groupMembers] : [filer];
+}
+
+// Everyone on the request who has an account here (used by the duplicate-date guard)
+function getRequestUids(req) {
+  return [...new Set(getRequestMembers(req).map((m) => m.uid).filter(Boolean))];
+}
+
+function requestIncludesUser(req, uid) {
+  return Boolean(uid) && getRequestUids(req).includes(uid);
+}
+
+// "Juan Dela Cruz" or "Juan Dela Cruz + 2 others"
+function formatRequestNames(req) {
+  const members = getRequestMembers(req);
+  const first = members[0].name || "";
+  return members.length === 1 ? first : `${first} + ${members.length - 1} other${members.length > 2 ? "s" : ""}`;
+}
+
+// Every name on the request, comma separated (CSV, review screen)
+function listRequestNames(req) {
+  return getRequestMembers(req).map((m) => m.name || "").join(", ");
+}
+
+function computeAllSlotKeys(req) {
+  return getRequestUids(req).flatMap((uid) => computeSlotKeysForRequest(uid, req));
+}
+
 /**
- * Checks if any slot is already occupied by another active (submitted/approved) request
+ * Checks if anyone on the request already has another active (submitted/approved)
+ * request covering the same day / half-day.
  */
 function checkDuplicateSlots(uid, reqData, ignoreRequestId = null) {
-  const keys = computeSlotKeysForRequest(uid, reqData);
+  const keys = computeAllSlotKeys({ ...reqData, uid: reqData.uid || uid });
   for (const key of keys) {
     const existing = state.absenceSlots[key];
     if (existing && existing.requestId !== ignoreRequestId) {
       const otherReq = state.requests[existing.requestId];
       if (otherReq && (otherReq.status === "submitted" || otherReq.status === "approved")) {
-        const [, datePart, shiftPart] = key.split("_");
+        const parts = key.split("_");
+        const shiftPart = parts.pop();
+        const datePart = parts.pop();
+        const personUid = parts.join("_");
         return {
           conflict: true,
           date: datePart,
           shift: shiftPart.toUpperCase(),
+          personUid,
+          personName: (state.users[personUid] && state.users[personUid].name) || "Someone",
           existingRequest: otherReq
         };
       }
@@ -595,25 +709,29 @@ function buildOpeningSentenceHTML(req, highlightVars = true) {
   const wrap = (val) =>
     highlightVars ? `<span class="a4-var-highlight">${escapeHtml(val)}</span>` : escapeHtml(val);
 
-  const dutyPhrase = req.memberType === "employee" ? "work duties" : "internship duties";
+  const group = isGroupRequest(req);
+  const types = new Set(getRequestMembers(req).map((m) => m.memberType || "intern"));
+  const dutyNoun = types.size > 1 ? "duties" : req.memberType === "employee" ? "work duties" : "internship duties";
+  const dutyPhrase = `${group ? "our" : "my"} ${dutyNoun}`;
+  const lead = group ? "We respectfully request" : "I respectfully request";
 
   if (req.type === "half") {
     const shiftText = req.shift || "morning";
     const timeRangeText = req.timeRange || (shiftText === "morning" ? "8:00 AM – 12:00 PM" : "1:00 PM – 5:00 PM");
     const dateText = req.date ? formatLongDate(req.date) : "{DATE}";
-    return `I respectfully request permission to be absent from my ${dutyPhrase} during the ${wrap(shiftText)} shift (${wrap(timeRangeText)}) of ${wrap(dateText)}.`;
+    return `${lead} permission to be absent from ${dutyPhrase} during the ${wrap(shiftText)} shift (${wrap(timeRangeText)}) of ${wrap(dateText)}.`;
   }
 
   if (req.type === "multi") {
     const startText = req.startDate ? formatLongDate(req.startDate) : "{START_DATE}";
     const endText = req.endDate ? formatLongDate(req.endDate) : "{END_DATE}";
     const nDays = req.startDate && req.endDate ? countWeekdaysBetween(req.startDate, req.endDate) : (req.days || "{N}");
-    return `I respectfully request permission to be absent from my ${dutyPhrase} from ${wrap(startText)} to ${wrap(endText)} (${wrap(nDays + (nDays === 1 ? " day" : " days"))}).`;
+    return `${lead} permission to be absent from ${dutyPhrase} from ${wrap(startText)} to ${wrap(endText)} (${wrap(nDays + (nDays === 1 ? " day" : " days"))}).`;
   }
 
   // Default: Full-day
   const dateText = req.date ? formatLongDate(req.date) : "{DATE}";
-  return `I respectfully request permission to be absent from my ${dutyPhrase} on ${wrap(dateText)}.`;
+  return `${lead} permission to be absent from ${dutyPhrase} on ${wrap(dateText)}.`;
 }
 
 // Only allow inline image data (drawn/uploaded signatures, photos) as <img> sources
@@ -636,6 +754,47 @@ function renderMemberSignatureSlot(req, options = {}) {
   return src
     ? `<img src="${src}" alt="Member Signature" />`
     : `<span class="a4-sig-space-placeholder">[Signature required]</span>`;
+}
+
+// Signature area for one person on a group letter
+function renderGroupMemberSignatureSlot(req, member, options = {}) {
+  if (options.blankSignature) return "";
+  const method = req.signatureMethod || "digital";
+  if (method !== "digital") return `<span class="a4-wet-note">Signed by hand</span>`;
+  const src = safeImageSrc(member.signature);
+  return src
+    ? `<img src="${src}" alt="Signature of ${escapeHtml(member.name || "")}" />`
+    : `<span class="a4-sig-space-placeholder">[Signature required]</span>`;
+}
+
+// Group letter: everyone signs in a 3-column grid, HR signs in the next cell
+function renderGroupSignaturesHTML(req, letterSettings, options, hrSigToRender, isApproved) {
+  const cells = getRequestMembers(req)
+    .map(
+      (m) => `
+        <div class="a4-group-sig">
+          <div class="a4-sig-space">${renderGroupMemberSignatureSlot(req, m, options)}</div>
+          <div class="a4-person-name">${escapeHtml(m.name || "[Name]")}</div>
+          <div class="a4-person-title">${escapeHtml(m.position || "")}</div>
+        </div>`
+    )
+    .join("");
+  const hrPlaceholder = isApproved || options.blankSignature ? "" : "[Signed by HR on approval]";
+  return `
+    <div class="a4-group-signatures">
+      <div class="a4-sig-greeting">Sincerely,</div>
+      <div class="a4-group-sig-grid">
+        ${cells}
+        <div class="a4-group-sig a4-group-sig-hr">
+          <div class="a4-sig-space">
+            ${hrSigToRender ? `<img src="${hrSigToRender}" alt="HR Officer Signature" />` : `<span class="a4-sig-space-placeholder">${hrPlaceholder}</span>`}
+          </div>
+          <div class="a4-person-name">${escapeHtml(letterSettings.signatoryName)}</div>
+          <div class="a4-person-title">${escapeHtml(letterSettings.signatoryTitle)}</div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderLockedLetterHTML(req, letterSettings = state.settings.letter, options = {}) {
@@ -709,11 +868,12 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
         <p class="a4-body-p">${reasonBody}</p>
 
         <!-- 3rd Paragraph: Apology & Handover Assurance -->
-        <p class="a4-body-p">${escapeHtml(letterSettings.apologyParagraph)}</p>
+        <p class="a4-body-p">${escapeHtml(isGroupRequest(req) ? letterSettings.apologyParagraphGroup || DEFAULT_GROUP_APOLOGY : letterSettings.apologyParagraph)}</p>
 
         <!-- 4th Paragraph: Closing Appreciation -->
-        <p class="a4-body-p">${escapeHtml(letterSettings.thankYouParagraph)}</p>
+        <p class="a4-body-p">${escapeHtml(isGroupRequest(req) ? letterSettings.thankYouParagraphGroup || DEFAULT_GROUP_THANKS : letterSettings.thankYouParagraph)}</p>
 
+        ${isGroupRequest(req) ? renderGroupSignaturesHTML(req, letterSettings, options, hrSigToRender, isApproved) : `
         <!-- Dual Signature Section Matching Exact Template Layout -->
         <div class="a4-signatures-row">
           <!-- Intern Signature Column (Left) -->
@@ -738,7 +898,7 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
             <div class="a4-person-name">${escapeHtml(letterSettings.signatoryName)}</div>
             <div class="a4-person-title">${escapeHtml(letterSettings.signatoryTitle)}</div>
           </div>
-        </div>
+        </div>`}
       </div>
     </div>
   `;
@@ -932,6 +1092,15 @@ function renderApp() {
         <button class="demo-switcher-btn ${state.currentUserUid === "intern-sofia" ? "active" : ""}" onclick="switchDemoAccount('intern-sofia')">
           👩‍💼 Intern: Sofia Reyes (Active)
         </button>
+        ${[
+          ["intern-john", "John"],
+          ["intern-mark", "Mark"],
+          ["intern-kevs", "Kevs"]
+        ]
+          .map(
+            ([uid, label]) => `<button class="demo-switcher-btn ${state.currentUserUid === uid ? "active" : ""}" onclick="switchDemoAccount('${uid}')">🎓 Intern: ${label}</button>`
+          )
+          .join("")}
         <button class="demo-switcher-btn ${state.currentUserUid === "emp-carlos" ? "active" : ""}" onclick="switchDemoAccount('emp-carlos')">
           👔 Employee: Carlos Mendoza (Active)
         </button>
@@ -1468,7 +1637,7 @@ function renderPendingInternScreen(user) {
    ========================================== */
 function renderInternDashboard(user) {
   const myReqs = Object.values(state.requests)
-    .filter((r) => r.uid === user.uid)
+    .filter((r) => requestIncludesUser(r, user.uid))
     .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
   const counts = {
@@ -1571,8 +1740,8 @@ function renderInternDashboard(user) {
                   <td>
                     <button class="btn btn-outline btn-sm" onclick="openLetterModal('${r.id}')">Preview</button>
                     ${
-                      r.status === "returned" || r.status === "draft"
-                        ? `<button class="btn btn-warning btn-sm" onclick="navigateTo('new-request', { editRequestId: '${r.id}' })">Revise</button>`
+                      canEditRequest(r, user)
+                        ? `<button class="btn btn-warning btn-sm" onclick="navigateTo('new-request', { editRequestId: '${r.id}' })">${r.status === "submitted" ? "Edit" : "Revise"}</button>`
                         : ""
                     }
                     ${
@@ -1636,9 +1805,19 @@ function renderInternDashboard(user) {
    SCREEN 3: NEW / REVISE REQUEST
    (Split Screen: Form Left, Live Locked A4 Preview Right)
    ========================================== */
+// Only the person who filed a request can edit it, and only before HR decides on it
+const EDITABLE_STATUSES = ["draft", "returned", "submitted"];
+function canEditRequest(req, user) {
+  return Boolean(req && user && req.uid === user.uid && EDITABLE_STATUSES.includes(req.status));
+}
+
 function renderNewRequestScreen(user) {
-  const editingReq = state.editingRequestId ? state.requests[state.editingRequestId] : null;
+  const candidate = state.editingRequestId ? state.requests[state.editingRequestId] : null;
+  const editingReq = canEditRequest(candidate, user) ? candidate : null;
+  if (!editingReq) state.editingRequestId = null;
   const isRevise = Boolean(editingReq);
+  const isEditingPending = Boolean(editingReq && editingReq.status === "submitted");
+  const isGroup = Boolean(editingReq && editingReq.isGroup);
 
   const defaultDate = addDaysYmd(todayYmd(), 1);
   const initialData = editingReq || {
@@ -1674,13 +1853,18 @@ function renderNewRequestScreen(user) {
   return `
     <div class="page-header">
       <div>
-        <h1 class="page-title">${isRevise ? `Revise Request (${editingReq.id})` : "New Leave of Absence Request"}</h1>
+        <h1 class="page-title">${isEditingPending ? `Edit Pending Request (${editingReq.id})` : isRevise ? `Revise Request (${editingReq.id})` : "New Leave of Absence Request"}</h1>
         <p class="page-subtitle">Fill in the variables below. The locked Alpha Premier letter updates in real time on the right.</p>
       </div>
       <button class="btn btn-outline" onclick="navigateTo('my-requests')">← Back to My Requests</button>
     </div>
 
     ${hrRemarksBanner}
+    ${
+      isEditingPending
+        ? `<div class="card" style="border-left:5px solid var(--apg-gold); margin-bottom:18px;"><div class="card-body" style="font-size:13px;">✏️ This request is still waiting for HR. Your changes replace the version HR sees. Once HR approves, returns or declines it, it can no longer be edited here.</div></div>`
+        : ""
+    }
 
     <div class="split-workspace">
       <!-- LEFT COLUMN: VARIABLE INPUT FORM -->
@@ -1706,6 +1890,28 @@ function renderNewRequestScreen(user) {
               <option value="intern" ${initialData.memberType === "intern" || (!initialData.memberType && user.role !== "employee") ? "selected" : ""}>Intern</option>
               <option value="employee" ${initialData.memberType === "employee" || user.role === "employee" ? "selected" : ""}>Employee</option>
             </select>
+          </div>
+
+          <!-- Who is absent? Just me, or a group with the same reason -->
+          <div class="form-group">
+            <label class="form-label">
+              <span>Who is absent? *</span>
+              <span style="font-weight:400; font-size:11.5px; color:var(--text-light);">Same reason? File one letter for everyone</span>
+            </label>
+            <div class="radio-pills" id="group-pills">
+              <div class="radio-pill ${isGroup ? "" : "active"}" data-group="solo" onclick="setGroupMode(false)">Just me</div>
+              <div class="radio-pill ${isGroup ? "active" : ""}" data-group="group" onclick="setGroupMode(true)">Group (same reason)</div>
+            </div>
+            <input type="hidden" id="f-is-group" value="${isGroup ? "1" : ""}" />
+            <div id="group-panel" class="group-panel" style="${isGroup ? "" : "display:none;"}">
+              <div class="form-hint" style="margin-bottom:8px;">You are listed first. Add everyone else who will be absent with you (up to ${MAX_GROUP_SIZE} people in total, including you).</div>
+              <div id="group-members-list"></div>
+              <div class="group-add-row">
+                <select id="group-add-select" class="form-control" aria-label="Choose a person to add"></select>
+                <button type="button" class="btn btn-outline btn-sm" onclick="addGroupMemberFromSelect()">+ Add</button>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" style="margin-top:8px;" onclick="addManualGroupMember()">+ Add someone not in the list</button>
+            </div>
           </div>
 
           <!-- Absence Type -->
@@ -1884,11 +2090,15 @@ function renderNewRequestScreen(user) {
 
           <!-- Submit / Save Draft Actions -->
           <div style="display:flex; gap:10px; margin-top:20px;">
-            <button type="button" class="btn btn-outline" style="flex:1;" onclick="saveOrSubmitRequest('draft')">
+            ${
+              isEditingPending
+                ? ""
+                : `<button type="button" class="btn btn-outline" style="flex:1;" onclick="saveOrSubmitRequest('draft')">
               📝 Save as Draft
-            </button>
+            </button>`
+            }
             <button type="button" id="btn-submit-req" class="btn btn-primary" style="flex:2;" onclick="saveOrSubmitRequest('submitted')">
-              🚀 Sign & Submit Official Letter
+              ${isEditingPending ? "💾 Save Changes" : "🚀 Sign & Submit Official Letter"}
             </button>
           </div>
         </div>
@@ -1927,6 +2137,220 @@ function setFormAbsenceType(type) {
   updateLiveLetterPreview();
 }
 
+/* ==========================================
+   GROUP MEMBERS EDITOR (New Request form)
+   ========================================== */
+let formGroupMembers = [];
+
+function isFormGroupMode() {
+  return document.getElementById("f-is-group")?.value === "1";
+}
+
+function setGroupMode(on) {
+  const input = document.getElementById("f-is-group");
+  if (!input) return;
+  input.value = on ? "1" : "";
+  document.querySelectorAll("#group-pills .radio-pill").forEach((el) => {
+    el.classList.toggle("active", el.getAttribute("data-group") === (on ? "group" : "solo"));
+  });
+  document.getElementById("group-panel").style.display = on ? "" : "none";
+  renderGroupMembersEditor();
+  updateLiveLetterPreview();
+}
+
+// Active interns/employees who can be added (not you, not already added)
+function getAddableGroupMembers() {
+  const me = getCurrentUser();
+  const taken = new Set(formGroupMembers.map((m) => m.uid).filter(Boolean));
+  return Object.entries(state.users)
+    .filter(([key, u]) => key === u.uid) // skip alias entries
+    .map(([, u]) => u)
+    .filter((u) => (u.role === "intern" || u.role === "employee") && u.status === "active")
+    .filter((u) => u.uid !== me.uid && !taken.has(u.uid))
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+}
+
+function groupIsFull() {
+  return formGroupMembers.length + 1 >= MAX_GROUP_SIZE;
+}
+
+function addGroupMemberFromSelect() {
+  const select = document.getElementById("group-add-select");
+  const u = select && state.users[select.value];
+  if (!u) {
+    showToast("Choose a person from the list first.");
+    return;
+  }
+  if (groupIsFull()) {
+    showToast(`A group letter can have at most ${MAX_GROUP_SIZE} people.`);
+    return;
+  }
+  formGroupMembers.push({
+    uid: u.uid,
+    name: u.name,
+    internId: u.internId || "",
+    position: u.position || "",
+    department: u.department || "",
+    memberType: u.memberType || (u.role === "employee" ? "employee" : "intern"),
+    signature: ""
+  });
+  renderGroupMembersEditor();
+  updateLiveLetterPreview();
+}
+
+function addManualGroupMember() {
+  if (groupIsFull()) {
+    showToast(`A group letter can have at most ${MAX_GROUP_SIZE} people.`);
+    return;
+  }
+  formGroupMembers.push({
+    uid: null,
+    name: "",
+    internId: "",
+    position: "",
+    department: "",
+    memberType: document.getElementById("f-member-type")?.value || "intern",
+    signature: ""
+  });
+  renderGroupMembersEditor();
+  updateLiveLetterPreview();
+  const inputs = document.querySelectorAll('#group-members-list [data-field="name"]');
+  if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+function removeGroupMember(index) {
+  formGroupMembers.splice(index, 1);
+  renderGroupMembersEditor();
+  updateLiveLetterPreview();
+}
+
+function updateGroupMemberField(index, field, value) {
+  if (!formGroupMembers[index]) return;
+  formGroupMembers[index][field] = value;
+  updateLiveLetterPreview();
+}
+
+function clearGroupMemberSignature(index) {
+  if (!formGroupMembers[index]) return;
+  formGroupMembers[index].signature = "";
+  renderGroupMembersEditor();
+  updateLiveLetterPreview();
+}
+
+function renderGroupMembersEditor() {
+  const list = document.getElementById("group-members-list");
+  if (!list) return;
+  const digital = (document.getElementById("f-sig-method")?.value || "digital") === "digital";
+
+  list.innerHTML = formGroupMembers.length
+    ? formGroupMembers
+        .map(
+          (m, i) => `
+      <div class="group-member-card">
+        <div class="group-member-head">
+          <div class="group-member-info">
+            ${
+              m.uid
+                ? `<strong>${escapeHtml(m.name)}</strong>
+                   <div class="group-member-sub">${escapeHtml(m.position || "—")}${m.internId ? ` · <code>${escapeHtml(m.internId)}</code>` : ""}</div>`
+                : `<div class="group-manual-fields">
+                     <input type="text" class="form-control" data-field="name" placeholder="Full name *" value="${escapeHtml(m.name)}" oninput="updateGroupMemberField(${i}, 'name', this.value)" />
+                     <input type="text" class="form-control" placeholder="ID number (optional)" value="${escapeHtml(m.internId)}" oninput="updateGroupMemberField(${i}, 'internId', this.value)" />
+                     <input type="text" class="form-control" placeholder="Position" value="${escapeHtml(m.position)}" oninput="updateGroupMemberField(${i}, 'position', this.value)" />
+                   </div>`
+            }
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="removeGroupMember(${i})" aria-label="Remove ${escapeHtml(m.name || "this person")}">✕ Remove</button>
+        </div>
+        ${
+          digital
+            ? `<div class="group-member-sig">
+                 <canvas class="sig-canvas group-sig-canvas" data-index="${i}" width="400" height="110" aria-label="Signature pad for ${escapeHtml(m.name || "this person")}"></canvas>
+                 <div class="group-member-sig-actions">
+                   <span>${m.signature ? "✓ Signed" : `${escapeHtml(m.name || "This person")} signs above`}</span>
+                   <button type="button" class="btn btn-outline btn-sm" onclick="clearGroupMemberSignature(${i})">Clear</button>
+                 </div>
+               </div>`
+            : ""
+        }
+      </div>`
+        )
+        .join("")
+    : `<div class="group-empty">No one added yet.</div>`;
+
+  list.querySelectorAll(".group-sig-canvas").forEach((canvas) => {
+    const i = Number(canvas.getAttribute("data-index"));
+    attachSignaturePad(canvas, formGroupMembers[i].signature, (dataUrl) => {
+      if (!formGroupMembers[i]) return;
+      formGroupMembers[i].signature = dataUrl;
+      const label = canvas.parentElement.querySelector(".group-member-sig-actions span");
+      if (label) label.textContent = "✓ Signed";
+      updateLiveLetterPreview();
+    });
+  });
+
+  const select = document.getElementById("group-add-select");
+  if (select) {
+    const options = getAddableGroupMembers();
+    select.innerHTML =
+      `<option value="">${options.length ? "Choose an intern or employee…" : "Everyone in the list is already added"}</option>` +
+      options
+        .map((u) => `<option value="${escapeHtml(u.uid)}">${escapeHtml(u.name)} — ${escapeHtml(u.position || u.role)}</option>`)
+        .join("");
+  }
+}
+
+// Small drawing pad (mouse, pen or touch). onDone receives a PNG data URL after each stroke.
+function attachSignaturePad(canvas, existing, onDone) {
+  const ctx = canvas.getContext("2d");
+  ctx.strokeStyle = "#0c2340";
+  ctx.lineWidth = 2.2;
+  ctx.lineCap = "round";
+  if (existing) {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(canvas.width / img.width, canvas.height / img.height, 1);
+      const w = img.width * scale;
+      const h = img.height * scale;
+      ctx.drawImage(img, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+    };
+    img.src = existing;
+  }
+  let drawing = false;
+  const pos = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((e.clientY - rect.top) / rect.height) * canvas.height
+    };
+  };
+  canvas.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    drawing = true;
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch (err) {
+      /* pointer already released; drawing still works without capture */
+    }
+    const p = pos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drawing) return;
+    const p = pos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  });
+  const end = () => {
+    if (!drawing) return;
+    drawing = false;
+    onDone(canvas.toDataURL("image/png"));
+  };
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+}
+
 function gatherDraftFormObject() {
   const user = getCurrentUser();
   const memberType = document.getElementById("f-member-type")?.value || (user.role === "employee" ? "employee" : "intern");
@@ -1941,6 +2365,16 @@ function gatherDraftFormObject() {
   const signatureMethod = document.getElementById("f-sig-method")?.value || "digital";
   const internSignature = signatureMethod === "digital" ? document.getElementById("f-signature")?.value || "" : "";
   const wetCopyImage = signatureMethod === "wet-upload" ? document.getElementById("f-wet-copy")?.value || "" : "";
+  const isGroup = isFormGroupMode();
+  const groupMembers = isGroup
+    ? formGroupMembers.map((m) => ({
+        ...m,
+        name: (m.name || "").trim(),
+        internId: (m.internId || "").trim(),
+        position: (m.position || "").trim(),
+        signature: signatureMethod === "digital" ? m.signature || "" : ""
+      }))
+    : [];
 
   let days = 1;
   let hoursImpact = 8;
@@ -1976,6 +2410,8 @@ function gatherDraftFormObject() {
     signatureMethod,
     internSignature,
     wetCopyImage,
+    isGroup: isGroup && groupMembers.length > 0,
+    groupMembers,
     status: "draft",
     createdAt: new Date().toISOString()
   };
@@ -2007,7 +2443,8 @@ function updateLiveLetterPreview() {
     const dup = checkDuplicateSlots(draftObj.uid, draftObj, state.editingRequestId);
     if (dup.conflict) {
       dupAlert.style.display = "block";
-      dupAlert.innerHTML = `⚠️ <strong>Duplicate Absence Guard:</strong> You already have an active (${escapeHtml(dup.existingRequest.status)}) request covering <strong>${formatShortDate(dup.date)} (${dup.shift})</strong>.`;
+      const who = dup.personUid === draftObj.uid ? "You already have" : `${escapeHtml(dup.personName)} already has`;
+      dupAlert.innerHTML = `⚠️ <strong>Duplicate Absence Guard:</strong> ${who} an active (${escapeHtml(dup.existingRequest.status)}) request covering <strong>${formatShortDate(dup.date)} (${dup.shift})</strong>.`;
     } else {
       dupAlert.style.display = "none";
     }
@@ -2017,6 +2454,10 @@ function updateLiveLetterPreview() {
 }
 
 function initNewRequestInteractivity() {
+  const editing = state.editingRequestId ? state.requests[state.editingRequestId] : null;
+  formGroupMembers = editing && Array.isArray(editing.groupMembers) ? editing.groupMembers.map((m) => ({ ...m })) : [];
+  renderGroupMembersEditor();
+
   ["f-member-type", "f-date", "f-start-date", "f-end-date", "f-shift", "f-timerange", "f-category", "f-details"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
@@ -2178,6 +2619,7 @@ function setSignatureMethod(method) {
   document.getElementById("wet-upload-group").style.display = next === "wet-upload" ? "" : "none";
   document.getElementById("wet-paper-group").style.display = next === "wet-paper" ? "" : "none";
 
+  renderGroupMembersEditor();
   updateLiveLetterPreview();
 }
 
@@ -2236,7 +2678,12 @@ function downloadLetterForWetSigning() {
     showToast("Fill in the date(s) and a reason of at least 30 characters before printing.");
     return;
   }
-  const printable = { ...draft, internSignature: "", status: "draft" };
+  const printable = {
+    ...draft,
+    internSignature: "",
+    groupMembers: (draft.groupMembers || []).map((m) => ({ ...m, signature: "" })),
+    status: "draft"
+  };
   printLetter(printable, { blankSignature: true });
 }
 
@@ -2272,6 +2719,22 @@ function useSavedProfileSignature() {
 function saveOrSubmitRequest(targetStatus) {
   const user = getCurrentUser();
   const draft = gatherDraftFormObject();
+  const editingReq = state.editingRequestId ? state.requests[state.editingRequestId] : null;
+
+  if (editingReq && !canEditRequest(editingReq, user)) {
+    showToast("This request was already reviewed by HR and can no longer be edited.");
+    state.editingRequestId = null;
+    navigateTo("my-requests");
+    return;
+  }
+  if (editingReq && editingReq.status === "submitted" && targetStatus === "draft") {
+    showToast("A request waiting for HR can't go back to draft. Save your changes, or withdraw it instead.");
+    return;
+  }
+  if (isFormGroupMode() && draft.groupMembers.some((m) => !m.name)) {
+    showToast("Enter the name of every person in the group (or remove the empty row).");
+    return;
+  }
 
   // Validations when submitting
   if (targetStatus === "submitted") {
@@ -2302,9 +2765,25 @@ function saveOrSubmitRequest(targetStatus) {
       return;
     }
 
+    if (isFormGroupMode() && draft.groupMembers.length === 0) {
+      showToast("Add at least one other person to the group, or choose \"Just me\".");
+      return;
+    }
+    if (getRequestMembers(draft).length > MAX_GROUP_SIZE) {
+      showToast(`A group letter can have at most ${MAX_GROUP_SIZE} people.`);
+      return;
+    }
+
     if (draft.signatureMethod === "digital" && !draft.internSignature) {
       showToast("Your signature is required before submitting the official letter.");
       return;
+    }
+    if (draft.signatureMethod === "digital") {
+      const unsigned = draft.groupMembers.find((m) => !m.signature);
+      if (unsigned) {
+        showToast(`${unsigned.name} still needs to sign on their signature pad.`);
+        return;
+      }
     }
     if (draft.signatureMethod === "wet-upload" && !draft.wetCopyImage) {
       showToast("Upload a photo or scan of your hand-signed letter, or choose to hand in the paper copy.");
@@ -2313,7 +2792,8 @@ function saveOrSubmitRequest(targetStatus) {
 
     const dup = checkDuplicateSlots(user.uid, draft, state.editingRequestId);
     if (dup.conflict) {
-      showToast(`Duplicate blocked: You already have a request on ${dup.date} (${dup.shift}).`);
+      const who = dup.personUid === user.uid ? "You already have" : `${dup.personName} already has`;
+      showToast(`Duplicate blocked: ${who} a request on ${dup.date} (${dup.shift}).`);
       return;
     }
   }
@@ -2343,7 +2823,11 @@ function saveOrSubmitRequest(targetStatus) {
     byUid: user.uid,
     byName: user.name,
     remarks: targetStatus === "submitted"
-      ? (existingReq && existingReq.status === "returned" ? "Revised and resubmitted letter." : "Submitted official absence request.")
+      ? existingReq && existingReq.status === "returned"
+        ? "Revised and resubmitted letter."
+        : existingReq && existingReq.status === "submitted"
+        ? "Edited while waiting for HR review."
+        : "Submitted official absence request."
       : "Saved as draft.",
     at: nowIso
   });
@@ -2351,6 +2835,8 @@ function saveOrSubmitRequest(targetStatus) {
   state.requests[reqId] = {
     ...draft,
     id: reqId,
+    // Everyone on the letter who has an account (lets group members see it; used by firestore.rules)
+    memberUids: getRequestUids(draft),
     status: targetStatus,
     review: existingReq ? existingReq.review : null,
     // Paper copy tracking for hand-signed letters handed in to HR
@@ -2367,15 +2853,23 @@ function saveOrSubmitRequest(targetStatus) {
 
   // Write absenceSlots in transaction if submitted
   if (targetStatus === "submitted") {
-    const slotKeys = computeSlotKeysForRequest(user.uid, draft);
-    slotKeys.forEach((k) => {
-      state.absenceSlots[k] = { requestId: reqId, uid: user.uid };
+    getRequestUids(state.requests[reqId]).forEach((memberUid) => {
+      computeSlotKeysForRequest(memberUid, draft).forEach((k) => {
+        state.absenceSlots[k] = { requestId: reqId, uid: memberUid };
+      });
     });
   }
 
+  const wasPending = existingReq && existingReq.status === "submitted";
   state.editingRequestId = null;
   saveState();
-  showToast(targetStatus === "submitted" ? "Request signed and submitted to HR!" : "Draft saved.");
+  showToast(
+    targetStatus === "submitted"
+      ? wasPending
+        ? "Changes saved. HR will see the updated letter."
+        : "Request signed and submitted to HR!"
+      : "Draft saved."
+  );
   navigateTo("my-requests");
 }
 
@@ -2385,8 +2879,9 @@ function saveOrSubmitRequest(targetStatus) {
    ========================================== */
 function renderMyRequestsScreen(user) {
   const filterStatus = window.myReqFilterStatus || "all";
+  // Requests I filed, plus group requests someone else filed with me on them (view only)
   const allMyReqs = Object.values(state.requests)
-    .filter((r) => r.uid === user.uid)
+    .filter((r) => requestIncludesUser(r, user.uid) && (r.uid === user.uid || r.status !== "draft"))
     .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
 
   const filtered = filterStatus === "all" ? allMyReqs : allMyReqs.filter((r) => r.status === filterStatus);
@@ -2395,7 +2890,7 @@ function renderMyRequestsScreen(user) {
     <div class="page-header">
       <div>
         <h1 class="page-title">My Absence Requests</h1>
-        <p class="page-subtitle">Track status, download approved A4 PDFs, revise returned letters, or withdraw pending requests.</p>
+        <p class="page-subtitle">Track status, download approved A4 PDFs, edit pending or returned letters, or withdraw pending requests. Group letters others filed with you show here too.</p>
       </div>
       <button class="btn btn-primary" onclick="navigateTo('new-request', { editRequestId: null })">+ New Request</button>
     </div>
@@ -2438,6 +2933,8 @@ function renderMyRequestsScreen(user) {
                 <td>
                   <div style="font-weight:700; color:var(--apg-gold);">${escapeHtml(r.refNo || "—")}</div>
                   <div style="font-size:11.5px; color:var(--text-light);">${escapeHtml(r.id)}</div>
+                  ${isGroupRequest(r) ? `<div class="group-tag" title="${escapeHtml(listRequestNames(r))}">👥 Group of ${getRequestMembers(r).length}</div>` : ""}
+                  ${r.uid !== user.uid ? `<div style="font-size:11px; color:var(--text-muted);">Filed by ${escapeHtml(r.snapshot?.name || "")}</div>` : ""}
                 </td>
                 <td>
                   <div style="font-weight:600;">
@@ -2464,12 +2961,12 @@ function renderMyRequestsScreen(user) {
                   <div style="display:flex; gap:6px; flex-wrap:wrap;">
                     <button class="btn btn-outline btn-sm" onclick="openLetterModal('${r.id}')">View Letter</button>
                     ${
-                      r.status === "draft" || r.status === "returned"
-                        ? `<button class="btn btn-warning btn-sm" onclick="navigateTo('new-request', { editRequestId: '${r.id}' })">Edit / Revise</button>`
+                      canEditRequest(r, user)
+                        ? `<button class="btn btn-warning btn-sm" onclick="navigateTo('new-request', { editRequestId: '${r.id}' })">${r.status === "submitted" ? "Edit" : "Edit / Revise"}</button>`
                         : ""
                     }
                     ${
-                      r.status === "submitted"
+                      r.status === "submitted" && r.uid === user.uid
                         ? `<button class="btn btn-danger btn-sm" onclick="withdrawSubmittedRequest('${r.id}')">Withdraw</button>`
                         : ""
                     }
@@ -2495,7 +2992,7 @@ function renderMyRequestsScreen(user) {
 function withdrawSubmittedRequest(reqId) {
   const req = state.requests[reqId];
   const user = getCurrentUser();
-  if (!req || req.status !== "submitted") return;
+  if (!req || req.status !== "submitted" || !user || req.uid !== user.uid) return;
 
   req.status = "withdrawn";
   req.updatedAt = new Date().toISOString();
@@ -2652,8 +3149,12 @@ function renderHRQueueScreen() {
                   <div style="font-size:11px; color:var(--text-light);">${escapeHtml(r.id)}</div>
                 </td>
                 <td>
-                  <div style="font-weight:700;">${escapeHtml(r.snapshot?.name)}</div>
-                  <div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(r.snapshot?.position)} · <code>${escapeHtml(r.snapshot?.internId)}</code></div>
+                  <div style="font-weight:700;">${escapeHtml(formatRequestNames(r))}</div>
+                  ${
+                    isGroupRequest(r)
+                      ? `<div class="group-tag" title="${escapeHtml(listRequestNames(r))}">👥 Group of ${getRequestMembers(r).length}</div>`
+                      : `<div style="font-size:11.5px; color:var(--text-muted);">${escapeHtml(r.snapshot?.position)} · <code>${escapeHtml(r.snapshot?.internId)}</code></div>`
+                  }
                 </td>
                 <td>
                   <div style="font-weight:600;">
@@ -2696,14 +3197,16 @@ function exportFilteredRequestsCSV() {
     showToast("No requests match the current filters.");
     return;
   }
-  const headers = ["RefNo", "RequestID", "MemberName", "MemberID", "Position", "Department", "Type", "DateOrRange", "Shift", "ReasonCategory", "Status", "ReviewedBy", "ReviewRemarks"];
+  const headers = ["RefNo", "RequestID", "MemberName", "MemberID", "Position", "Department", "GroupSize", "Type", "DateOrRange", "Shift", "ReasonCategory", "Status", "ReviewedBy", "ReviewRemarks"];
+  const joinField = (r, field) => getRequestMembers(r).map((m) => m[field] || "").join("; ");
   const rows = allReqs.map((r) => [
     r.refNo || "",
     r.id,
-    r.snapshot?.name || "",
-    r.snapshot?.internId || "",
-    r.snapshot?.position || "",
-    r.snapshot?.department || "",
+    joinField(r, "name"),
+    joinField(r, "internId"),
+    joinField(r, "position"),
+    joinField(r, "department"),
+    getRequestMembers(r).length,
     r.type,
     r.type === "multi" ? `${r.startDate} to ${r.endDate}` : r.date,
     r.shift || "full",
@@ -2752,7 +3255,7 @@ function renderHRReviewScreen() {
   return `
     <div class="page-header">
       <div>
-        <h1 class="page-title">HR Request Review: ${escapeHtml(req.snapshot?.name)}</h1>
+        <h1 class="page-title">HR Request Review: ${escapeHtml(formatRequestNames(req))}</h1>
         <p class="page-subtitle">Request ID: <code>${escapeHtml(req.id)}</code> · Current Status: ${renderStatusPill(req.status)}</p>
       </div>
       <div style="display:flex; gap:8px;">
@@ -2840,6 +3343,20 @@ function renderHRReviewScreen() {
               <div><strong>Department:</strong> ${escapeHtml(req.snapshot?.department || "—")}</div>
               <div><strong>Reason Category:</strong> ${escapeHtml(req.reasonCategory)}</div>
             </div>
+            ${
+              isGroupRequest(req)
+                ? `<div class="group-review-list">
+                     <strong>👥 Group request · ${getRequestMembers(req).length} people</strong>
+                     <ul>
+                       ${getRequestMembers(req)
+                         .map(
+                           (m) => `<li>${escapeHtml(m.name)}${m.position ? ` · ${escapeHtml(m.position)}` : ""}${m.internId ? ` · <code>${escapeHtml(m.internId)}</code>` : ""}${m.isFiler ? " <em>(filed the request)</em>" : m.uid ? "" : " <em>(no account)</em>"}</li>`
+                         )
+                         .join("")}
+                     </ul>
+                   </div>`
+                : ""
+            }
           </div>
         </div>
 
@@ -3170,8 +3687,8 @@ function renderHRCalendarScreen() {
         ${events
           .map(
             (ev) => `
-          <div class="cal-event ${ev.status}" onclick="navigateTo('hr-review', { reviewRequestId: '${ev.id}' })" title="Click to review ${escapeHtml(ev.snapshot?.name)}">
-            ${ev.type === "half" ? (ev.shift === "morning" ? "[AM]" : "[PM]") : "[FULL]"} ${escapeHtml(ev.snapshot?.name.split(" ")[0])}
+          <div class="cal-event ${ev.status}" onclick="navigateTo('hr-review', { reviewRequestId: '${ev.id}' })" title="Click to review ${escapeHtml(listRequestNames(ev))}">
+            ${ev.type === "half" ? (ev.shift === "morning" ? "[AM]" : "[PM]") : "[FULL]"} ${escapeHtml((ev.snapshot?.name || "").split(" ")[0])}${isGroupRequest(ev) ? ` +${getRequestMembers(ev).length - 1}` : ""}
           </div>
         `
           )
@@ -3270,6 +3787,16 @@ function renderHRSettingsScreen() {
             <div class="form-group">
               <label class="form-label">Locked Thank-You Closing Paragraph (4th Paragraph)</label>
               <textarea id="set-thanks" class="form-control" rows="2" required>${escapeHtml(s.thankYouParagraph)}</textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Group Letter: Apology Paragraph (used when several people file one letter)</label>
+              <textarea id="set-apology-group" class="form-control" rows="3" required>${escapeHtml(s.apologyParagraphGroup || DEFAULT_GROUP_APOLOGY)}</textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Group Letter: Thank-You Paragraph</label>
+              <textarea id="set-thanks-group" class="form-control" rows="2" required>${escapeHtml(s.thankYouParagraphGroup || DEFAULT_GROUP_THANKS)}</textarea>
             </div>
 
             <div class="form-group">
@@ -3424,6 +3951,8 @@ function saveLetterSettings(e) {
   s.addressBlock = document.getElementById("set-address").value;
   s.apologyParagraph = document.getElementById("set-apology").value.trim();
   s.thankYouParagraph = document.getElementById("set-thanks").value.trim();
+  s.apologyParagraphGroup = document.getElementById("set-apology-group").value.trim() || DEFAULT_GROUP_APOLOGY;
+  s.thankYouParagraphGroup = document.getElementById("set-thanks-group").value.trim() || DEFAULT_GROUP_THANKS;
   s.hrSignature = document.getElementById("set-hr-sig").value;
   s.attachmentsEnabled = document.getElementById("set-attachments").checked;
 
