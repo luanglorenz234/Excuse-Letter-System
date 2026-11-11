@@ -604,6 +604,7 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
 
   return `
     <div class="a4-sheet ${options.cleanPdf ? "clean-pdf-render" : ""}" id="${options.elementId || "a4-letter-preview"}">
+      <img src="assets/letterhead-bg.jpg" class="a4-bg-img" alt="Alpha Premier Letterhead" />
       ${topStampHTML}
 
       <!-- Locked A4 Letter Content overlaying the Official Letterhead Template -->
@@ -667,54 +668,35 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
 }
 
 /* ==========================================
-   CLIENT-SIDE A4 PDF GENERATOR
-   (html2canvas + jsPDF over A4 sheet)
+   OFFICIAL A4 PRINT & PDF GENERATOR
+   Mounts the clean letterhead sheet into the dedicated
+   print mount so native browser print / save-as-pdf
+   renders strictly 1 page of the official letter
    ========================================== */
-async function downloadRequestPDF(requestId) {
+function downloadRequestPDF(requestId) {
   const req = state.requests[requestId];
   if (!req) return;
 
-  showToast("Generating official A4 PDF document...");
+  // Mount the clean official letter into the dedicated print container
+  let mount = document.getElementById("print-letter-mount");
+  if (!mount) {
+    mount = document.createElement("div");
+    mount.id = "print-letter-mount";
+    document.body.appendChild(mount);
+  }
 
-  // Create offscreen clean A4 container for crisp capture
-  const holder = document.createElement("div");
-  holder.style.position = "fixed";
-  holder.style.left = "-9999px";
-  holder.style.top = "0";
-  holder.innerHTML = renderLockedLetterHTML(req, state.settings.letter, {
+  mount.innerHTML = renderLockedLetterHTML(req, state.settings.letter, {
     highlightVars: false,
     cleanPdf: true,
-    elementId: "pdf-export-sheet"
+    elementId: "print-active-sheet"
   });
-  document.body.appendChild(holder);
 
-  const sheetEl = holder.querySelector("#pdf-export-sheet");
+  showToast(`Preparing official letter ready to print (${req.refNo || req.id})...`);
 
-  try {
-    if (window.html2canvas && window.jspdf) {
-      const canvas = await window.html2canvas(sheetEl, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#ffffff"
-      });
-      const imgData = canvas.toDataURL("image/png");
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      const fileName = `${req.refNo || req.id}_${req.snapshot.name.replace(/\s+/g, "_")}.pdf`;
-      pdf.save(fileName);
-      showToast(`Downloaded ${fileName}`);
-    } else {
-      window.print();
-    }
-  } catch (err) {
-    console.error("PDF export error, falling back to print:", err);
+  // Small timeout to allow images and signatures to decode cleanly before opening the print preview
+  setTimeout(() => {
     window.print();
-  } finally {
-    document.body.removeChild(holder);
-  }
+  }, 100);
 }
 
 /* ==========================================

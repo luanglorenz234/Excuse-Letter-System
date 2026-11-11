@@ -872,15 +872,15 @@ table.data-table tr:hover {
   box-sizing: border-box;
 }
 
-/* Print & Export styles */
-@media print {
-  .a4-sheet {
-    box-shadow: none !important;
-    width: 100% !important;
-    height: 100% !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
+.a4-bg-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  z-index: 1;
 }
 
 /* Official APPROVED Stamp & Reference Box on Approved Letters */
@@ -1253,28 +1253,118 @@ canvas.sig-canvas {
   border-left: 4px solid var(--apg-gold);
 }
 
-/* Print / Clean PDF Mode */
-.clean-pdf-render .a4-var-highlight {
-  background: transparent !important;
-  border-bottom: none !important;
-  padding: 0 !important;
+/* ==========================================
+   OFFICIAL A4 PRINT & PDF EXPORT ENGINE
+   Strictly 1 Page A4 Output Matching Template
+   ========================================== */
+@media screen {
+  #print-letter-mount {
+    display: none !important;
+  }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
 }
 
 @media print {
-  .demo-bar, .sidebar, .page-header, .no-print {
+  /* 1. Completely hide the web app, sidebar, tables, cards, dialogs & tools */
+  #app-root,
+  .demo-bar,
+  .sidebar,
+  .main-content,
+  .page-header,
+  .card,
+  .table-wrap,
+  .preview-toolbar,
+  .modal-backdrop,
+  .modal-box,
+  .toast-container,
+  .no-print {
     display: none !important;
+    visibility: hidden !important;
   }
-  body, .main-content, .preview-stage {
-    background: #ffffff !important;
-    padding: 0 !important;
+
+  /* 2. Configure document viewport to exact standard A4 */
+  html, body {
+    width: 210mm !important;
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
     margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
-  .a4-sheet {
+
+  /* 3. Mount container strictly filling exactly 1 A4 page */
+  #print-letter-mount {
+    display: block !important;
+    visibility: visible !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
+    max-width: 210mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    z-index: 999999 !important;
+  }
+
+  #print-letter-mount * {
+    visibility: visible !important;
+  }
+
+  /* 4. Strict 1-page A4 letter sizing with no page spill */
+  #print-letter-mount .a4-sheet {
+    width: 210mm !important;
+    height: 297mm !important;
+    max-width: 210mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     box-shadow: none !important;
-    width: 100% !important;
+    border: none !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    position: relative !important;
   }
+
+  #print-letter-mount .a4-bg-img {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: fill !important;
+    z-index: 1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  #print-letter-mount .a4-letter-content {
+    position: relative !important;
+    z-index: 2 !important;
+  }
+
+  /* 5. Clean print styling */
+  .clean-pdf-render .a4-var-highlight,
   .a4-var-highlight {
     background: transparent !important;
     border-bottom: none !important;
+    padding: 0 !important;
   }
 }
