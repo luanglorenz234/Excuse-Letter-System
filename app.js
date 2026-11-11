@@ -741,33 +741,6 @@ function getCurrentUser() {
   return state.users[state.currentUserUid] || null;
 }
 
-function computeInternHoursStats(uid) {
-  const user = state.users[uid];
-  if (!user) return { required: 480, rendered: 0, approvedDeducted: 0, pendingDeducted: 0, remaining: 480 };
-
-  const userReqs = Object.values(state.requests).filter((r) => r.uid === uid);
-  const approvedDeducted = userReqs
-    .filter((r) => r.status === "approved")
-    .reduce((acc, r) => acc + (Number(r.hoursImpact) || 0), 0);
-
-  const pendingDeducted = userReqs
-    .filter((r) => r.status === "submitted")
-    .reduce((acc, r) => acc + (Number(r.hoursImpact) || 0), 0);
-
-  // Decision 8: Only Approved requests deduct hours ( effectively adding to remaining hours needed or deducting from effective rendered credit )
-  const effectiveRendered = Math.max(0, (Number(user.renderedHours) || 0) - approvedDeducted);
-  const remaining = Math.max(0, (Number(user.requiredHours) || 480) - effectiveRendered);
-
-  return {
-    required: Number(user.requiredHours) || 480,
-    rendered: Number(user.renderedHours) || 0,
-    approvedDeducted,
-    pendingDeducted,
-    effectiveRendered,
-    remaining
-  };
-}
-
 /* ==========================================
    ROLE / DEMO SWITCHER & NAVIGATION
    ========================================== */
@@ -890,6 +863,12 @@ function renderApp() {
             <span class="nav-label">My Requests</span>
           </div>
           ${returnedCountForIntern > 0 ? `<span class="nav-badge" title="${returnedCountForIntern} requests to revise">${returnedCountForIntern}</span>` : ""}
+        </li>
+        <li class="nav-item ${state.currentScreen === "hr-calendar" ? "active" : ""}" onclick="navigateTo('hr-calendar')" title="Absence Calendar">
+          <div class="nav-item-content">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Calendar</span>
+          </div>
         </li>
       </ul>
     `;
@@ -1130,7 +1109,7 @@ function renderPendingInternScreen(user) {
       <h2 class="page-title">Account Pending HR Activation</h2>
       <p style="color:var(--text-muted); margin:12px 0 20px; font-size:14.5px;">
         Welcome, <strong>${escapeHtml(user.name)}</strong> (${escapeHtml(user.email)}).<br/>
-        To ensure every official Alpha Premier letter uses standardized titles and IDs (preventing typos like <em>"MarketingAssociate"</em>), HR must activate your account and assign your <strong>ID Number</strong>, <strong>Official Position</strong>, <strong>Department</strong>, and <strong>Required / Target Hours</strong> before you can file absence requests.
+        To ensure every official Alpha Premier letter uses standardized titles and IDs (preventing typos like <em>"MarketingAssociate"</em>), HR must activate your account and assign your <strong>ID Number</strong>, <strong>Official Position</strong>, and <strong>Department</strong> before you can file excuse letters.
       </p>
       <div style="background:var(--apg-surface-elevated); border:1px solid var(--border); padding:16px; border-radius:8px; text-align:left; font-size:13px; margin-bottom:20px;">
         <div><strong>Current Status:</strong> <span class="status-pill status-submitted">Pending HR Activation</span></div>
@@ -1147,7 +1126,6 @@ function renderPendingInternScreen(user) {
    SCREEN 2: INTERN DASHBOARD
    ========================================== */
 function renderInternDashboard(user) {
-  const hrs = computeInternHoursStats(user.uid);
   const myReqs = Object.values(state.requests)
     .filter((r) => r.uid === user.uid)
     .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
@@ -1158,10 +1136,6 @@ function renderInternDashboard(user) {
     returned: myReqs.filter((r) => r.status === "returned").length,
     draft: myReqs.filter((r) => r.status === "draft").length
   };
-
-  const pctRendered = Math.min(100, Math.round((hrs.effectiveRendered / hrs.required) * 100));
-  const pctDeducted = Math.min(100 - pctRendered, Math.round((hrs.approvedDeducted / hrs.required) * 100));
-  const pctPending = Math.min(100 - pctRendered - pctDeducted, Math.round((hrs.pendingDeducted / hrs.required) * 100));
 
   const returnedAlertHTML = counts.returned > 0
     ? `
@@ -1181,63 +1155,47 @@ function renderInternDashboard(user) {
     <div class="page-header">
       <div>
         <h1 class="page-title">${user.role === "employee" ? "Employee Dashboard" : "Dashboard"}</h1>
-        <p class="page-subtitle">Locked Profile Snapshot: <strong>${escapeHtml(user.name)}</strong> · ${escapeHtml(user.position)} · ID: <code>${escapeHtml(user.internId)}</code></p>
+        <p class="page-subtitle">Profile: <strong>${escapeHtml(user.name)}</strong> · ${escapeHtml(user.position)} · ID: <code>${escapeHtml(user.internId)}</code></p>
       </div>
-      <button class="btn btn-primary" onclick="navigateTo('new-request', { editRequestId: null })">
-        + New Leave of Absence Request
-      </button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-outline" onclick="navigateTo('hr-calendar')">📅 View Calendar</button>
+        <button class="btn btn-primary" onclick="navigateTo('new-request', { editRequestId: null })">
+          + New Excuse Letter
+        </button>
+      </div>
     </div>
 
     ${returnedAlertHTML}
 
-    <!-- Hours Impact Card -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">⏱️ Hours Tracker & Absence Deduction Impact</span>
-        <span style="font-size:12px; color:var(--text-muted);">Rule: Full-day = 8h · Half-day = 4h · Multi-day = 8h × weekdays (Approved only deducts)</span>
+    <!-- Excuse Letters Overview Stats Grid -->
+    <div class="stats-grid" style="margin-bottom:20px;">
+      <div class="stat-card">
+        <div class="stat-label">Total Requests Filed</div>
+        <div class="stat-value">${myReqs.length}</div>
+        <div class="stat-sub">All-time excuse letters</div>
       </div>
-      <div class="card-body">
-        <div class="stats-grid" style="margin-bottom:14px;">
-          <div class="stat-card">
-            <div class="stat-label">${user.role === "employee" ? "Target Work Hours" : "Required Hours"}</div>
-            <div class="stat-value">${hrs.required} h</div>
-            <div class="stat-sub">Set by HR upon activation</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Gross Rendered Hours</div>
-            <div class="stat-value" style="color:#22c55e;">${hrs.rendered} h</div>
-            <div class="stat-sub">Logged attendance hours</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Approved Absence Deduction</div>
-            <div class="stat-value" style="color:#f87171;">-${hrs.approvedDeducted} h</div>
-            <div class="stat-sub">${hrs.pendingDeducted > 0 ? `+ ${hrs.pendingDeducted} h pending review` : "No pending deductions"}</div>
-          </div>
-          <div class="stat-card" style="background:var(--apg-surface-elevated); border-color:var(--apg-gold);">
-            <div class="stat-label">Net Remaining Hours Needed</div>
-            <div class="stat-value" style="color:var(--apg-gold);">${hrs.remaining} h</div>
-            <div class="stat-sub">Net credited: ${hrs.effectiveRendered} / ${hrs.required} h (${pctRendered}%)</div>
-          </div>
-        </div>
-
-        <div class="hours-meter">
-          <div class="hours-bar-rendered" style="width:${pctRendered}%" title="Net Credited Hours"></div>
-          <div class="hours-bar-deducted" style="width:${pctDeducted}%" title="Approved Absence Deduction"></div>
-          <div class="hours-bar-pending" style="width:${pctPending}%" title="Pending Absence Deduction"></div>
-        </div>
-        <div style="display:flex; gap:18px; font-size:12px; color:var(--text-muted); flex-wrap:wrap;">
-          <span>🟢 Net Credited (${hrs.effectiveRendered}h)</span>
-          <span>🔴 Deducted by Approved Leave (-${hrs.approvedDeducted}h)</span>
-          <span>🟡 Pending Review Impact (${hrs.pendingDeducted}h)</span>
-        </div>
+      <div class="stat-card" style="border-left:4px solid #16a34a;">
+        <div class="stat-label">Approved Letters</div>
+        <div class="stat-value" style="color:#22c55e;">${counts.approved}</div>
+        <div class="stat-sub">Signed & stamped by HR</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #eab308;">
+        <div class="stat-label">Pending HR Review</div>
+        <div class="stat-value" style="color:#fde047;">${counts.submitted}</div>
+        <div class="stat-sub">In approval queue</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #ea580c;">
+        <div class="stat-label">Returned for Revision</div>
+        <div class="stat-value" style="color:#fb923c;">${counts.returned}</div>
+        <div class="stat-sub">Edits requested</div>
       </div>
     </div>
 
     <div class="grid-2">
-      <!-- Request Summary -->
+      <!-- Recent Requests -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">📋 Recent Absence Requests</span>
+          <span class="card-title">📋 Recent Excuse Letters</span>
           <button class="btn btn-outline btn-sm" onclick="navigateTo('my-requests')">View All (${myReqs.length})</button>
         </div>
         <div class="table-wrap">
@@ -1245,7 +1203,7 @@ function renderInternDashboard(user) {
             <thead>
               <tr>
                 <th>Date(s)</th>
-                <th>Type / Hours</th>
+                <th>Absence Type</th>
                 <th>Status</th>
                 <th>Action</th>
               </tr>
@@ -1266,7 +1224,7 @@ function renderInternDashboard(user) {
                   </td>
                   <td>
                     <span style="text-transform:capitalize; font-weight:600;">${escapeHtml(r.type)}</span>
-                    <div style="font-size:11.5px; color:var(--text-muted);">-${r.hoursImpact} hrs</div>
+                    <div style="font-size:11.5px; color:var(--text-muted);">${r.shift ? escapeHtml(r.shift) : (r.type === "multi" ? `${r.days} days` : "Full Day")}</div>
                   </td>
                   <td>${renderStatusPill(r.status)}</td>
                   <td>
@@ -1410,8 +1368,8 @@ function renderNewRequestScreen(user) {
           <div class="form-group">
             <label class="form-label">Absence Type *</label>
             <div class="radio-pills" id="type-pills">
-              <div class="radio-pill ${initialData.type === "full" ? "active" : ""}" data-type="full" onclick="setFormAbsenceType('full')">Full-day (8h)</div>
-              <div class="radio-pill ${initialData.type === "half" ? "active" : ""}" data-type="half" onclick="setFormAbsenceType('half')">Half-day (4h)</div>
+              <div class="radio-pill ${initialData.type === "full" ? "active" : ""}" data-type="full" onclick="setFormAbsenceType('full')">Full-day</div>
+              <div class="radio-pill ${initialData.type === "half" ? "active" : ""}" data-type="half" onclick="setFormAbsenceType('half')">Half-day</div>
               <div class="radio-pill ${initialData.type === "multi" ? "active" : ""}" data-type="multi" onclick="setFormAbsenceType('multi')">Multiple days</div>
             </div>
             <input type="hidden" id="f-type" value="${escapeHtml(initialData.type)}" />
@@ -1439,7 +1397,7 @@ function renderNewRequestScreen(user) {
               </div>
             </div>
             <div class="form-hint" id="multi-days-hint" style="margin-top:-8px; margin-bottom:14px; font-weight:600; color:var(--apg-gold);">
-              Weekdays (Mon–Fri) counted: 2 days (16 hours impact)
+              Weekdays (Mon–Fri) counted: 2 days
             </div>
           </div>
 
@@ -1641,7 +1599,7 @@ function updateLiveLetterPreview() {
   // Update multi-day weekday hint
   const multiHint = document.getElementById("multi-days-hint");
   if (multiHint && draftObj.type === "multi") {
-    multiHint.textContent = `Weekdays (Mon–Fri) counted: ${draftObj.days} weekday(s) (${draftObj.hoursImpact} hours deduction if approved)`;
+    multiHint.textContent = `Weekdays (Mon–Fri) counted: ${draftObj.days} weekday(s)`;
   }
 
   // Check duplicate slot guard live
@@ -1941,7 +1899,6 @@ function renderMyRequestsScreen(user) {
               <th>Ref No. / ID</th>
               <th>Absence Type & Date(s)</th>
               <th>Category</th>
-              <th>Hours Impact</th>
               <th>Status</th>
               <th>HR Remarks / Review</th>
               <th>Actions</th>
@@ -1950,7 +1907,7 @@ function renderMyRequestsScreen(user) {
           <tbody>
             ${
               filtered.length === 0
-                ? `<tr><td colspan="7" style="text-align:center; padding:28px; color:var(--text-muted);">No requests matching filter.</td></tr>`
+                ? `<tr><td colspan="6" style="text-align:center; padding:28px; color:var(--text-muted);">No requests matching filter.</td></tr>`
                 : filtered
                     .map(
                       (r) => `
@@ -1972,7 +1929,6 @@ function renderMyRequestsScreen(user) {
                   </div>
                 </td>
                 <td>${escapeHtml(r.reasonCategory)}</td>
-                <td><strong>-${r.hoursImpact} h</strong></td>
                 <td>${renderStatusPill(r.status)}</td>
                 <td style="max-width:260px; font-size:12.5px;">
                   ${
@@ -2068,9 +2024,6 @@ function renderHRQueueScreen() {
   const pendingCount = allReqs.filter((r) => r.status === "submitted").length;
   const approvedCount = allReqs.filter((r) => r.status === "approved").length;
   const returnedCount = allReqs.filter((r) => r.status === "returned").length;
-  const totalApprovedHours = allReqs
-    .filter((r) => r.status === "approved")
-    .reduce((acc, r) => acc + (Number(r.hoursImpact) || 0), 0);
 
   // Breakdown by Reason Category
   const byReason = {};
@@ -2104,12 +2057,12 @@ function renderHRQueueScreen() {
       <div class="stat-card" style="border-left:4px solid #ea580c;">
         <div class="stat-label">Returned for Revision</div>
         <div class="stat-value">${returnedCount}</div>
-        <div class="stat-sub">Awaiting intern edits</div>
+        <div class="stat-sub">Awaiting edits</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Total Approved Absence Hours</div>
-        <div class="stat-value">${totalApprovedHours} h</div>
-        <div class="stat-sub">Across all active interns</div>
+        <div class="stat-label">Total Absence Requests</div>
+        <div class="stat-value">${allReqs.length}</div>
+        <div class="stat-sub">Across all members</div>
       </div>
     </div>
 
@@ -2151,10 +2104,9 @@ function renderHRQueueScreen() {
           <thead>
             <tr>
               <th>Ref No.</th>
-              <th>Intern (Snapshot)</th>
+              <th>Member (Snapshot)</th>
               <th>Absence Type & Date(s)</th>
               <th>Reason Category</th>
-              <th>Hours</th>
               <th>Status</th>
               <th>Action</th>
             </tr>
@@ -2185,7 +2137,6 @@ function renderHRQueueScreen() {
                   </div>
                 </td>
                 <td>${escapeHtml(r.reasonCategory)}</td>
-                <td><strong>-${r.hoursImpact} h</strong></td>
                 <td>${renderStatusPill(r.status)}</td>
                 <td>
                   <button class="btn ${r.status === "submitted" ? "btn-primary" : "btn-outline"} btn-sm" onclick="navigateTo('hr-review', { reviewRequestId: '${r.id}' })">
@@ -2210,7 +2161,7 @@ function renderHRQueueScreen() {
 
 function exportFilteredRequestsCSV() {
   const allReqs = Object.values(state.requests).filter((r) => r.status !== "draft");
-  const headers = ["RefNo", "RequestID", "MemberName", "MemberID", "Position", "Department", "Type", "DateOrRange", "Shift", "HoursImpact", "ReasonCategory", "Status", "ReviewedBy", "ReviewRemarks"];
+  const headers = ["RefNo", "RequestID", "MemberName", "MemberID", "Position", "Department", "Type", "DateOrRange", "Shift", "ReasonCategory", "Status", "ReviewedBy", "ReviewRemarks"];
   const rows = allReqs.map((r) => [
     r.refNo || "",
     r.id,
@@ -2221,7 +2172,6 @@ function exportFilteredRequestsCSV() {
     r.type,
     r.type === "multi" ? `${r.startDate} to ${r.endDate}` : r.date,
     r.shift || "full",
-    r.hoursImpact,
     r.reasonCategory,
     r.status,
     r.review?.byName || "",
@@ -2257,7 +2207,6 @@ function renderHRReviewScreen() {
   const internHistory = Object.values(state.requests).filter(
     (r) => r.uid === req.uid && r.id !== req.id && r.status !== "draft"
   );
-  const internHours = computeInternHoursStats(req.uid);
 
   return `
     <div class="page-header">
@@ -2296,11 +2245,11 @@ function renderHRReviewScreen() {
                 <textarea id="hr-review-remarks" class="form-control" rows="3" placeholder="Enter approval note, or specify why the request is being returned for revision or declined..."></textarea>
               </div>
               <div style="background:var(--apg-surface-elevated); border:1px solid var(--border); padding:10px 12px; border-radius:7px; font-size:12px; margin-bottom:14px;">
-                <strong>On Approval Transaction:</strong> Assigns next reference number <code>APG-EL-2026-${String(state.counters["2026"].nextRefNo).padStart(4, "0")}</code>, stamps Ms. Chico's HR signature & approval date onto the letter, and deducts <strong>${req.hoursImpact} hours</strong> from hours balance.
+                <strong>On Approval Transaction:</strong> Assigns next reference number <code>APG-EL-2026-${String(state.counters["2026"].nextRefNo).padStart(4, "0")}</code> and stamps Ms. Chico's official HR signature onto the letter.
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="btn btn-success" style="flex:1.2;" onclick="handleHRDecision('${req.id}', 'approved')">
-                  ✓ Approve & Stamp Letter
+                  ✓ Approve & Sign Letter
                 </button>
                 <button class="btn btn-warning" style="flex:1;" onclick="handleHRDecision('${req.id}', 'returned')">
                   🟠 Return for Revision
@@ -2327,10 +2276,10 @@ function renderHRReviewScreen() {
           </div>
         </div>
 
-        <!-- Request Details & Member Hours Snapshot -->
+        <!-- Request Details -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">📌 Request Metadata & Hours Impact</span>
+            <span class="card-title">📌 Request Metadata</span>
           </div>
           <div class="card-body" style="font-size:13px;">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
@@ -2338,29 +2287,28 @@ function renderHRReviewScreen() {
               <div><strong>ID Number:</strong> <code>${escapeHtml(req.snapshot?.internId)}</code></div>
               <div><strong>Member Type:</strong> <span class="user-role-tag">${escapeHtml(req.memberType || "intern")}</span></div>
               <div><strong>Position:</strong> ${escapeHtml(req.snapshot?.position)}</div>
+              <div><strong>Department:</strong> ${escapeHtml(req.snapshot?.department || "—")}</div>
               <div><strong>Reason Category:</strong> ${escapeHtml(req.reasonCategory)}</div>
-              <div><strong>Hours Impact:</strong> -${req.hoursImpact} hours</div>
-              <div><strong>Remaining Hours:</strong> ${internHours.remaining} / ${internHours.required} h</div>
             </div>
           </div>
         </div>
 
-        <!-- Intern's Past Absence History -->
+        <!-- Past Absence History -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">📂 Intern's Other Absence Requests (${internHistory.length})</span>
+            <span class="card-title">📂 Member's Other Absence Requests (${internHistory.length})</span>
           </div>
           <div class="card-body">
             ${
               internHistory.length === 0
-                ? `<div style="color:var(--text-muted); font-size:13px;">No other requests filed by this intern.</div>`
+                ? `<div style="color:var(--text-muted); font-size:13px;">No other requests filed by this member.</div>`
                 : internHistory
                     .map(
                       (h) => `
                   <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px;">
                     <div>
                       <strong>${h.type === "multi" ? `${formatShortDate(h.startDate)} – ${formatShortDate(h.endDate)}` : formatShortDate(h.date)}</strong>
-                      <span style="color:var(--text-muted);"> · ${escapeHtml(h.reasonCategory)} (-${h.hoursImpact}h)</span>
+                      <span style="color:var(--text-muted);"> · ${escapeHtml(h.reasonCategory)} (${escapeHtml(h.type)})</span>
                     </div>
                     <div>${renderStatusPill(h.status)}</div>
                   </div>
@@ -2703,14 +2651,6 @@ function renderHRSettingsScreen() {
                   <label style="font-size:11px; font-weight:700; color:var(--text-muted);">OFFICIAL POSITION TITLE (LANDS ON LETTER)</label>
                   <input type="text" id="u-pos-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.position)}" placeholder="e.g. HR/Marketing Associate or Operations Specialist" />
                 </div>
-                <div>
-                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">REQUIRED / TARGET HOURS</label>
-                  <input type="number" id="u-reqh-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${u.requiredHours || 0}" />
-                </div>
-                <div>
-                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">RENDERED / CREDITED HOURS</label>
-                  <input type="number" id="u-renh-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${u.renderedHours || 0}" />
-                </div>
               </div>
 
               <div style="display:flex; gap:8px; justify-content:flex-end;">
@@ -2811,8 +2751,6 @@ function updateInternAccountByHR(uid, newStatus) {
   const internId = document.getElementById(`u-id-${uid}`)?.value.trim() || "";
   const dept = document.getElementById(`u-dept-${uid}`)?.value.trim() || "";
   const pos = document.getElementById(`u-pos-${uid}`)?.value.trim() || "";
-  const reqH = Number(document.getElementById(`u-reqh-${uid}`)?.value) || 0;
-  const renH = Number(document.getElementById(`u-renh-${uid}`)?.value) || 0;
 
   if (newStatus === "active" && (!internId || !pos || !dept)) {
     showToast("Please assign an ID Number, Official Position, and Department to activate this member.");
@@ -2824,8 +2762,6 @@ function updateInternAccountByHR(uid, newStatus) {
   u.internId = internId;
   u.department = dept;
   u.position = pos;
-  u.requiredHours = reqH;
-  u.renderedHours = renH;
   u.status = newStatus;
 
   saveState();

@@ -538,33 +538,7 @@ body {
   }
 }
 
-/* ==========================================
-   HOURS PROGRESS BAR
-   ========================================== */
-.hours-meter {
-  height: 12px;
-  background: #1e1e28;
-  border-radius: 99px;
-  overflow: hidden;
-  display: flex;
-  margin: 12px 0 8px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
 
-.hours-bar-rendered {
-  background: linear-gradient(90deg, #16a34a, #22c55e);
-  height: 100%;
-}
-
-.hours-bar-deducted {
-  background: linear-gradient(90deg, #dc2626, #ef4444);
-  height: 100%;
-}
-
-.hours-bar-pending {
-  background: linear-gradient(90deg, var(--apg-gold-dark), var(--apg-gold-bright));
-  height: 100%;
-}
 
 /* ==========================================
    BUTTONS, INPUTS & FORMS
