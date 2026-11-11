@@ -872,15 +872,6 @@ table.data-table tr:hover {
   box-sizing: border-box;
 }
 
-.a4-bg-img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
-  pointer-events: none;
-  z-index: 1;
 }
 
 /* Official APPROVED Stamp & Reference Box on Approved Letters */
@@ -937,6 +928,8 @@ table.data-table tr:hover {
 
 /* Letter Content Layout - Pulled down and inset towards center to clear corner graphics */
 .a4-letter-content {
+  position: relative;
+  z-index: 2;
   padding: 178px 94px 115px 94px; /* Safely clears top-left logo, top-right diagonal & bottom graphics */
   font-size: 13.5px;
   line-height: 1.5;
@@ -1342,17 +1335,6 @@ canvas.sig-canvas {
     print-color-adjust: exact !important;
     color-adjust: exact !important;
     position: relative !important;
-  }
-
-  #print-letter-mount .a4-bg-img {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    object-fit: fill !important;
-    z-index: 1 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   #print-letter-mount .a4-letter-content {

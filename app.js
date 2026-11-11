@@ -607,7 +607,6 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
 
   return `
     <div class="a4-sheet ${options.cleanPdf ? "clean-pdf-render" : ""}" id="${options.elementId || "a4-letter-preview"}">
-      <img src="assets/letterhead-bg.jpg" class="a4-bg-img" alt="Alpha Premier Letterhead" />
       ${topStampHTML}
 
       <!-- Locked A4 Letter Content overlaying the Official Letterhead Template -->
