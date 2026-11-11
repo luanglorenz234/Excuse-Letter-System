@@ -15,7 +15,12 @@ function createSignatureDataUrl(text, color = "#0c2340") {
 }
 
 const DEFAULT_HR_SIG = createSignatureDataUrl("Jean Ashley Chico", "#0c2340");
-const DEFAULT_JUAN_SIG = createSignatureDataUrl("Juan M. Dela Cruz", "#1e3a8a");
+const DEFAULT_LORENZ_SIG = createSignatureDataUrl("Prince Lorenz P. Lu-ang", "#1e3a8a");
+const DEFAULT_LORD_SIG = createSignatureDataUrl("Lord L. Bartolome", "#1e293b");
+const DEFAULT_AUREO_SIG = createSignatureDataUrl("Christopher Joseph V. Aureo", "#0f172a");
+const DEFAULT_JUAN_SIG = DEFAULT_LORENZ_SIG;
+const DEFAULT_MARK_SIG = DEFAULT_LORD_SIG;
+const DEFAULT_KEVS_SIG = DEFAULT_AUREO_SIG;
 const DEFAULT_SOFIA_SIG = createSignatureDataUrl("Sofia G. Reyes", "#1e293b");
 
 // Group letter wording (several people filing one letter for the same reason)
