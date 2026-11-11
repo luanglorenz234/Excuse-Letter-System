@@ -1033,20 +1033,20 @@ function renderApp() {
    ========================================== */
 function renderLoginScreen() {
   return `
-    <div style="min-height: calc(100vh - 42px); display:flex; align-items:center; justify-content:center; padding:24px; background:linear-gradient(135deg, #0c2340 0%, #1e3a8a 100%);">
-      <div class="card" style="max-width:920px; width:100%; margin:0; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; box-shadow:var(--shadow-lg);">
+    <div style="min-height: calc(100vh - 42px); display:flex; align-items:center; justify-content:center; padding:24px; background:radial-gradient(circle at 50% 25%, #181510 0%, #08080c 80%);">
+      <div class="card" style="max-width:920px; width:100%; margin:0; display:grid; grid-template-columns:1fr 1fr; overflow:hidden; border:1px solid var(--border-strong); box-shadow:var(--shadow-lg);">
         <!-- Left: Sign In -->
-        <div style="padding:32px;">
-          <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+        <div style="padding:32px; background:var(--bg-card);">
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:24px;">
             <div class="brand-emblem">AP</div>
             <div>
-              <div style="font-weight:800; color:var(--apg-navy); font-size:16px;">ALPHA PREMIER GROUP</div>
+              <div style="font-weight:800; color:var(--apg-gold); font-size:16px; letter-spacing:0.04em;">ALPHA PREMIER GROUP</div>
               <div style="font-size:12px; color:var(--text-muted);">Leave of Absence Portal</div>
             </div>
           </div>
 
-          <h2 style="font-size:20px; color:var(--apg-navy); margin-bottom:6px;">Sign In</h2>
-          <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">
+          <h2 style="font-size:20px; color:var(--text-main); margin-bottom:6px;">Sign In</h2>
+          <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">
             Select an account below or sign in with your registered email.
           </p>
 
@@ -1063,8 +1063,8 @@ function renderLoginScreen() {
           </form>
 
           <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border);">
-            <div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:8px;">QUICK DEMO ACCOUNTS:</div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="font-size:12px; font-weight:700; color:var(--apg-gold); margin-bottom:8px; letter-spacing:0.04em;">QUICK DEMO ACCOUNTS:</div>
+            <div style="display:flex; flex-direction:column; gap:8px;">
               <button class="btn btn-outline btn-sm" onclick="switchDemoAccount('intern-juan')">Intern: Juan Dela Cruz (Active · 480h)</button>
               <button class="btn btn-outline btn-sm" onclick="switchDemoAccount('hr-chico')">HR Officer: Ms. Jean Ashley Chico</button>
             </div>
@@ -1072,10 +1072,10 @@ function renderLoginScreen() {
         </div>
 
         <!-- Right: Intern Self-Registration -->
-        <div style="padding:32px; background:#f8fafc; border-left:1px solid var(--border);">
-          <h2 style="font-size:20px; color:var(--apg-navy); margin-bottom:6px;">Intern Self-Registration</h2>
+        <div style="padding:32px; background:#0b0b10; border-left:1px solid var(--border);">
+          <h2 style="font-size:20px; color:var(--text-main); margin-bottom:6px;">Member Registration</h2>
           <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:16px;">
-            <strong>Decision #6 Security Policy:</strong> New intern accounts start as <span class="status-pill status-submitted">pending</span>. HR activates your profile and sets your official Intern ID, Position, Department, and Required Hours so letter variables are never mistyped.
+            <strong>Decision #6 Security Policy:</strong> New accounts start as <span class="status-pill status-submitted">pending</span>. HR activates your profile and sets your official ID, Position, Department, and Required Hours so letter variables are never mistyped.
           </p>
 
           <form onsubmit="handleSelfRegisterSubmit(event)">
@@ -1084,14 +1084,14 @@ function renderLoginScreen() {
               <input type="text" id="reg-name" class="form-control" placeholder="e.g., Carlos Miguel Villanueva" required />
             </div>
             <div class="form-group">
-              <label class="form-label">University / Personal Email</label>
-              <input type="email" id="reg-email" class="form-control" placeholder="carlos.villanueva@university.edu.ph" required />
+              <label class="form-label">University / Work Email</label>
+              <input type="email" id="reg-email" class="form-control" placeholder="carlos.villanueva@alphapremiergroup.com" required />
             </div>
             <div class="form-group">
               <label class="form-label">Password</label>
               <input type="password" id="reg-pass" class="form-control" placeholder="Minimum 8 characters" required />
             </div>
-            <button type="submit" class="btn btn-gold" style="width:100%;">Register Intern Account</button>
+            <button type="submit" class="btn btn-gold" style="width:100%;">Register Account</button>
           </form>
         </div>
       </div>
@@ -1148,7 +1148,7 @@ function renderPendingInternScreen(user) {
         Welcome, <strong>${escapeHtml(user.name)}</strong> (${escapeHtml(user.email)}).<br/>
         To ensure every official Alpha Premier letter uses standardized titles and IDs (preventing typos like <em>"MarketingAssociate"</em>), HR must activate your account and assign your <strong>ID Number</strong>, <strong>Official Position</strong>, <strong>Department</strong>, and <strong>Required / Target Hours</strong> before you can file absence requests.
       </p>
-      <div style="background:#f8fafc; border:1px solid var(--border); padding:16px; border-radius:8px; text-align:left; font-size:13px; margin-bottom:20px;">
+      <div style="background:var(--apg-surface-elevated); border:1px solid var(--border); padding:16px; border-radius:8px; text-align:left; font-size:13px; margin-bottom:20px;">
         <div><strong>Current Status:</strong> <span class="status-pill status-submitted">Pending HR Activation</span></div>
         <div style="margin-top:6px;"><strong>Tip for testing:</strong> Click <strong>"🛡️ HR Officer: Ms. Jean Ashley Chico"</strong> in the top bar → go to <strong>HR Settings & Accounts</strong> → click <strong>Activate & Assign Profile</strong> next to ${escapeHtml(user.name)}!</div>
       </div>
@@ -1181,11 +1181,11 @@ function renderInternDashboard(user) {
 
   const returnedAlertHTML = counts.returned > 0
     ? `
-      <div class="card" style="border-left:5px solid #ea580c; background:#fff7ed;">
+      <div class="card" style="border-left:5px solid #ea580c; background:rgba(234, 88, 12, 0.12);">
         <div class="card-body" style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
           <div>
-            <div style="font-weight:700; color:#9a3412; font-size:14.5px;">🟠 You have ${counts.returned} request returned for revision by HR</div>
-            <div style="font-size:13px; color:#7c2d12; margin-top:2px;">You can edit the remarks/details and resubmit without filing a brand-new request.</div>
+            <div style="font-weight:700; color:#fb923c; font-size:14.5px;">🟠 You have ${counts.returned} request returned for revision by HR</div>
+            <div style="font-size:13px; color:#fdba74; margin-top:2px;">You can edit the remarks/details and resubmit without filing a brand-new request.</div>
           </div>
           <button class="btn btn-warning btn-sm" onclick="navigateTo('my-requests')">Review & Revise →</button>
         </div>
@@ -1221,17 +1221,17 @@ function renderInternDashboard(user) {
           </div>
           <div class="stat-card">
             <div class="stat-label">Gross Rendered Hours</div>
-            <div class="stat-value" style="color:#15803d;">${hrs.rendered} h</div>
+            <div class="stat-value" style="color:#22c55e;">${hrs.rendered} h</div>
             <div class="stat-sub">Logged attendance hours</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">Approved Absence Deduction</div>
-            <div class="stat-value" style="color:#dc2626;">-${hrs.approvedDeducted} h</div>
+            <div class="stat-value" style="color:#f87171;">-${hrs.approvedDeducted} h</div>
             <div class="stat-sub">${hrs.pendingDeducted > 0 ? `+ ${hrs.pendingDeducted} h pending review` : "No pending deductions"}</div>
           </div>
-          <div class="stat-card" style="background:#f8fafc; border-color:var(--apg-navy);">
+          <div class="stat-card" style="background:var(--apg-surface-elevated); border-color:var(--apg-gold);">
             <div class="stat-label">Net Remaining Hours Needed</div>
-            <div class="stat-value" style="color:var(--apg-navy);">${hrs.remaining} h</div>
+            <div class="stat-value" style="color:var(--apg-gold);">${hrs.remaining} h</div>
             <div class="stat-sub">Net credited: ${hrs.effectiveRendered} / ${hrs.required} h (${pctRendered}%)</div>
           </div>
         </div>
@@ -1376,10 +1376,10 @@ function renderNewRequestScreen(user) {
   const hrRemarksBanner =
     editingReq && editingReq.status === "returned" && editingReq.review
       ? `
-      <div class="card" style="border-left:5px solid #ea580c; background:#fff7ed; margin-bottom:18px;">
+      <div class="card" style="border-left:5px solid #ea580c; background:rgba(234, 88, 12, 0.12); margin-bottom:18px;">
         <div class="card-body">
-          <div style="font-weight:700; color:#9a3412;">🟠 Returned for Revision by ${escapeHtml(editingReq.review.byName)}</div>
-          <div style="font-size:13.5px; color:#7c2d12; margin-top:4px;"><strong>HR Remarks:</strong> "${escapeHtml(editingReq.review.remarks)}"</div>
+          <div style="font-weight:700; color:#fb923c;">🟠 Returned for Revision by ${escapeHtml(editingReq.review.byName)}</div>
+          <div style="font-size:13.5px; color:#fdba74; margin-top:4px;"><strong>HR Remarks:</strong> "${escapeHtml(editingReq.review.remarks)}"</div>
         </div>
       </div>
     `
@@ -1405,8 +1405,8 @@ function renderNewRequestScreen(user) {
         </div>
         <div class="card-body">
           <!-- Locked Auto-Filled Profile Snapshot Preview -->
-          <div style="background:#f8fafc; border:1px solid var(--border); border-radius:7px; padding:10px 12px; margin-bottom:16px; font-size:12px;">
-            <div style="font-weight:700; color:var(--apg-navy); margin-bottom:3px;">🔒 Auto-Snapshotted from Profile:</div>
+          <div style="background:var(--apg-surface-elevated); border:1px solid var(--border); border-radius:7px; padding:10px 12px; margin-bottom:16px; font-size:12px;">
+            <div style="font-weight:700; color:var(--apg-gold); margin-bottom:3px;">🔒 Auto-Snapshotted from Profile:</div>
             <div><strong>${escapeHtml(user.name)}</strong> · ${escapeHtml(user.position)} · <code>${escapeHtml(user.internId)}</code></div>
           </div>
 
@@ -1454,7 +1454,7 @@ function renderNewRequestScreen(user) {
                 <input type="date" id="f-end-date" class="form-control" min="${minDateAllowed}" value="${escapeHtml(initialData.endDate || "2026-11-17")}" />
               </div>
             </div>
-            <div class="form-hint" id="multi-days-hint" style="margin-top:-8px; margin-bottom:14px; font-weight:600; color:var(--apg-navy);">
+            <div class="form-hint" id="multi-days-hint" style="margin-top:-8px; margin-bottom:14px; font-weight:600; color:var(--apg-gold);">
               Weekdays (Mon–Fri) counted: 2 days (16 hours impact)
             </div>
           </div>
@@ -1477,7 +1477,7 @@ function renderNewRequestScreen(user) {
           </div>
 
           <!-- Duplicate Slot Guard Live Banner -->
-          <div id="duplicate-guard-alert" style="display:none; background:#fee2e2; border:1px solid #f87171; color:#991b1b; padding:10px 12px; border-radius:7px; font-size:12.5px; margin-bottom:16px; font-weight:600;"></div>
+          <div id="duplicate-guard-alert" style="display:none; background:rgba(220, 38, 38, 0.16); border:1px solid rgba(248, 113, 113, 0.4); color:#fca5a5; padding:10px 12px; border-radius:7px; font-size:12.5px; margin-bottom:16px; font-weight:600;"></div>
 
           <!-- Reason Category (HR Filtering & Analytics) -->
           <div class="form-group">
@@ -1514,7 +1514,7 @@ function renderNewRequestScreen(user) {
             </div>
           `
               : `
-            <div style="background:#f8fafc; border:1px dashed var(--border-strong); padding:8px 12px; border-radius:6px; font-size:11.5px; color:var(--text-light); margin-bottom:16px;">
+            <div style="background:var(--apg-surface-elevated); border:1px dashed var(--border-strong); padding:8px 12px; border-radius:6px; font-size:11.5px; color:var(--text-light); margin-bottom:16px;">
               📎 <strong>Attachments:</strong> Hidden while <code>settings/letter.attachmentsEnabled</code> is <code>false</code> (Decision #4). HR can toggle this flag on in <strong>HR Settings</strong>.
             </div>
           `
@@ -1972,7 +1972,7 @@ function renderMyRequestsScreen(user) {
                       (r) => `
               <tr class="${r.status === "withdrawn" ? "row-withdrawn" : ""}">
                 <td>
-                  <div style="font-weight:700; color:var(--apg-navy);">${escapeHtml(r.refNo || "—")}</div>
+                  <div style="font-weight:700; color:var(--apg-gold);">${escapeHtml(r.refNo || "—")}</div>
                   <div style="font-size:11.5px; color:var(--text-light);">${escapeHtml(r.id)}</div>
                 </td>
                 <td>
@@ -2133,7 +2133,7 @@ function renderHRQueueScreen() {
     <div class="card">
       <div class="card-header" style="flex-wrap:wrap;">
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <strong style="font-size:13px; color:var(--apg-navy);">Filter Queue:</strong>
+          <strong style="font-size:13px; color:var(--apg-gold);">Filter Queue:</strong>
           <select class="form-control" style="width:auto; padding:6px 10px;" onchange="window.hrFilterStatus=this.value; renderApp();">
             <option value="all" ${statusFilter === "all" ? "selected" : ""}>All Statuses (${allReqs.length})</option>
             <option value="submitted" ${statusFilter === "submitted" ? "selected" : ""}>🟡 Submitted (Pending)</option>
@@ -2181,7 +2181,7 @@ function renderHRQueueScreen() {
                 (r) => `
               <tr class="${r.status === "withdrawn" ? "row-withdrawn" : ""}">
                 <td>
-                  <div style="font-weight:700; color:var(--apg-navy);">${escapeHtml(r.refNo || "Pending")}</div>
+                  <div style="font-weight:700; color:var(--apg-gold);">${escapeHtml(r.refNo || "Pending")}</div>
                   <div style="font-size:11px; color:var(--text-light);">${escapeHtml(r.id)}</div>
                 </td>
                 <td>
@@ -2311,7 +2311,7 @@ function renderHRReviewScreen() {
                 </label>
                 <textarea id="hr-review-remarks" class="form-control" rows="3" placeholder="Enter approval note, or specify why the request is being returned for revision or declined..."></textarea>
               </div>
-              <div style="background:#f8fafc; border:1px solid var(--border); padding:10px 12px; border-radius:7px; font-size:12px; margin-bottom:14px;">
+              <div style="background:var(--apg-surface-elevated); border:1px solid var(--border); padding:10px 12px; border-radius:7px; font-size:12px; margin-bottom:14px;">
                 <strong>On Approval Transaction:</strong> Assigns next reference number <code>APG-EL-2026-${String(state.counters["2026"].nextRefNo).padStart(4, "0")}</code>, stamps Ms. Chico's HR signature & approval date onto the letter, and deducts <strong>${req.hoursImpact} hours</strong> from hours balance.
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -2331,7 +2331,7 @@ function renderHRReviewScreen() {
                 <div style="margin-bottom:8px;">This request is currently <strong>${escapeHtml(req.status.toUpperCase())}</strong>.</div>
                 ${
                   req.review
-                    ? `<div style="background:#f8fafc; padding:10px; border-radius:6px; border:1px solid var(--border);">
+                    ? `<div style="background:var(--apg-surface-elevated); padding:10px; border-radius:6px; border:1px solid var(--border);">
                         <div><strong>Reviewed by:</strong> ${escapeHtml(req.review.byName)} on ${formatShortDate(req.review.at)}</div>
                         <div style="margin-top:4px;"><strong>Remarks:</strong> "${escapeHtml(req.review.remarks || "No remarks")}"</div>
                       </div>`
@@ -2658,7 +2658,7 @@ function renderHRSettingsScreen() {
               </div>
             </div>
 
-            <div class="form-group" style="background:#f8fafc; border:1px solid var(--border); padding:12px; border-radius:8px;">
+            <div class="form-group" style="background:var(--apg-surface-elevated); border:1px solid var(--border); padding:12px; border-radius:8px;">
               <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; font-weight:600; font-size:13.5px;">
                 <span>📎 Enable Firebase Storage Attachments (<code>attachmentsEnabled</code>)</span>
                 <input type="checkbox" id="set-attachments" ${s.attachmentsEnabled ? "checked" : ""} style="width:18px; height:18px;" />
@@ -2685,10 +2685,10 @@ function renderHRSettingsScreen() {
           ${members
             .map(
               (u) => `
-            <div style="border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px; background:${u.status === "pending" ? "#fffbeb" : "#ffffff"};">
+            <div style="border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px; background:${u.status === "pending" ? "rgba(212, 163, 67, 0.12)" : "var(--apg-surface-elevated)"};">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <div>
-                  <strong style="font-size:14px; color:var(--apg-navy);">${escapeHtml(u.name)}</strong>
+                  <strong style="font-size:14px; color:var(--apg-gold);">${escapeHtml(u.name)}</strong>
                   <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(u.email)}</div>
                 </div>
                 <div style="display:flex; gap:6px; align-items:center;">
