@@ -77,11 +77,11 @@ function getInitialSeedState() {
       },
       "intern-juan": {
         uid: "intern-juan",
-        name: "Juan Miguel Dela Cruz",
-        email: "juan.delacruz@university.edu.ph",
-        internId: "APG-INT-2026-014",
-        position: "HR/Marketing Associate Intern",
-        department: "Marketing & HR",
+        name: "Prince Lorenz P. Lu-ang",
+        email: "demo@intern.com",
+        internId: "APG-INT-2026-001",
+        position: "IT Associate Intern",
+        department: "Information Technology",
         role: "intern",
         memberType: "intern",
         status: "active",
@@ -92,11 +92,11 @@ function getInitialSeedState() {
       },
       "demo-intern": {
         uid: "intern-juan",
-        name: "Juan Miguel Dela Cruz",
+        name: "Prince Lorenz P. Lu-ang",
         email: "demo@intern.com",
-        internId: "APG-INT-2026-014",
-        position: "HR/Marketing Associate Intern",
-        department: "Marketing & HR",
+        internId: "APG-INT-2026-001",
+        position: "IT Associate Intern",
+        department: "Information Technology",
         role: "intern",
         memberType: "intern",
         status: "active",
@@ -105,43 +105,88 @@ function getInitialSeedState() {
         savedSignature: DEFAULT_JUAN_SIG,
         createdAt: "2026-09-01T08:30:00+08:00"
       },
-      "intern-john": {
-        uid: "intern-john",
-        name: "John Paolo Santos",
-        email: "john.santos@university.edu.ph",
-        internId: "APG-INT-2026-021",
-        position: "HR/Marketing Associate Intern",
-        department: "Marketing & HR",
+      "intern-lorenz": {
+        uid: "intern-juan",
+        name: "Prince Lorenz P. Lu-ang",
+        email: "prince.luang@university.edu.ph",
+        internId: "APG-INT-2026-001",
+        position: "IT Associate Intern",
+        department: "Information Technology",
+        role: "intern",
+        memberType: "intern",
+        status: "active",
+        requiredHours: 480,
+        renderedHours: 240,
+        savedSignature: DEFAULT_JUAN_SIG,
+        createdAt: "2026-09-01T08:30:00+08:00"
+      },
+      "intern-lord": {
+        uid: "intern-lord",
+        name: "Lord L. Bartolome",
+        email: "lord.bartolome@university.edu.ph",
+        internId: "APG-INT-2026-002",
+        position: "IT Associate Intern",
+        department: "Information Technology",
         role: "intern",
         memberType: "intern",
         status: "active",
         requiredHours: 480,
         renderedHours: 0,
-        savedSignature: "",
+        savedSignature: DEFAULT_MARK_SIG,
         createdAt: "2026-09-01T08:30:00+08:00"
       },
       "intern-mark": {
-        uid: "intern-mark",
-        name: "Mark Anthony Villanueva",
+        uid: "intern-lord",
+        name: "Lord L. Bartolome",
         email: "mark.villanueva@university.edu.ph",
-        internId: "APG-INT-2026-022",
-        position: "Operations & Finance Intern",
-        department: "Operations",
+        internId: "APG-INT-2026-002",
+        position: "IT Associate Intern",
+        department: "Information Technology",
         role: "intern",
         memberType: "intern",
         status: "active",
         requiredHours: 480,
         renderedHours: 0,
-        savedSignature: "",
+        savedSignature: DEFAULT_MARK_SIG,
+        createdAt: "2026-09-01T08:30:00+08:00"
+      },
+      "intern-aureo": {
+        uid: "intern-aureo",
+        name: "Christopher Joseph V. Aureo",
+        email: "christopher.aureo@university.edu.ph",
+        internId: "APG-INT-2026-003",
+        position: "IT Associate Intern",
+        department: "Information Technology",
+        role: "intern",
+        memberType: "intern",
+        status: "active",
+        requiredHours: 480,
+        renderedHours: 0,
+        savedSignature: DEFAULT_KEVS_SIG,
         createdAt: "2026-09-01T08:30:00+08:00"
       },
       "intern-kevs": {
-        uid: "intern-kevs",
-        name: "Kevin Ramos (Kevs)",
+        uid: "intern-aureo",
+        name: "Christopher Joseph V. Aureo",
         email: "kevin.ramos@university.edu.ph",
-        internId: "APG-INT-2026-023",
-        position: "IT Support Intern",
-        department: "Operations",
+        internId: "APG-INT-2026-003",
+        position: "IT Associate Intern",
+        department: "Information Technology",
+        role: "intern",
+        memberType: "intern",
+        status: "active",
+        requiredHours: 480,
+        renderedHours: 0,
+        savedSignature: DEFAULT_KEVS_SIG,
+        createdAt: "2026-09-01T08:30:00+08:00"
+      },
+      "intern-john": {
+        uid: "intern-lord",
+        name: "Lord L. Bartolome",
+        email: "john.santos@university.edu.ph",
+        internId: "APG-INT-2026-021",
+        position: "IT Associate Intern",
+        department: "Information Technology",
         role: "intern",
         memberType: "intern",
         status: "active",
@@ -203,10 +248,10 @@ function getInitialSeedState() {
         refNo: "APG-EL-2026-0041",
         uid: "intern-juan",
         snapshot: {
-          name: "Juan Miguel Dela Cruz",
-          internId: "APG-INT-2026-014",
-          position: "HR/Marketing Associate Intern",
-          department: "Marketing & HR"
+          name: "Prince Lorenz P. Lu-ang",
+          internId: "APG-INT-2026-001",
+          position: "IT Associate Intern",
+          department: "Information Technology"
         },
         type: "full",
         date: "2026-11-05",
@@ -304,13 +349,34 @@ function getInitialSeedState() {
 
       "req-2026-003": {
         id: "req-2026-003",
-        refNo: null,
+        refNo: "APG-EL-2026-0043",
         uid: "intern-juan",
+        isGroup: true,
+        groupMembers: [
+          {
+            uid: "intern-lord",
+            name: "Lord L. Bartolome",
+            internId: "APG-INT-2026-002",
+            position: "IT Associate Intern",
+            department: "Information Technology",
+            memberType: "intern",
+            signature: DEFAULT_MARK_SIG
+          },
+          {
+            uid: "intern-aureo",
+            name: "Christopher Joseph V. Aureo",
+            internId: "APG-INT-2026-003",
+            position: "IT Associate Intern",
+            department: "Information Technology",
+            memberType: "intern",
+            signature: DEFAULT_KEVS_SIG
+          }
+        ],
         snapshot: {
-          name: "Juan Miguel Dela Cruz",
-          internId: "APG-INT-2026-014",
-          position: "HR/Marketing Associate Intern",
-          department: "Marketing & HR"
+          name: "Prince Lorenz P. Lu-ang",
+          internId: "APG-INT-2026-001",
+          position: "IT Associate Intern",
+          department: "Information Technology"
         },
         type: "multi",
         date: null,
@@ -324,20 +390,33 @@ function getInitialSeedState() {
         reasonDetails: "Our department is holding its annual graduating batch pre-employment seminar and mock board examination at the university auditorium, which requires full two-day attendance.",
         attachment: null,
         internSignature: DEFAULT_JUAN_SIG,
-        status: "submitted",
-        review: null,
+        status: "approved",
+        review: {
+          byUid: "hr-chico",
+          byName: "Ms. Jean Ashley Chico",
+          remarks: "Approved for the IT intern team.",
+          at: "2026-11-10T14:30:00+08:00",
+          hrSignature: DEFAULT_HR_SIG
+        },
         history: [
           {
             status: "submitted",
             byUid: "intern-juan",
-            byName: "Juan Miguel Dela Cruz",
-            remarks: "Submitted multi-day leave request.",
+            byName: "Prince Lorenz P. Lu-ang",
+            remarks: "Submitted multi-day group leave request.",
             at: "2026-11-10T09:15:00+08:00"
+          },
+          {
+            status: "approved",
+            byUid: "hr-chico",
+            byName: "Ms. Jean Ashley Chico",
+            remarks: "Approved for the IT intern team.",
+            at: "2026-11-10T14:30:00+08:00"
           }
         ],
         createdAt: "2026-11-10T09:05:00+08:00",
         submittedAt: "2026-11-10T09:15:00+08:00",
-        updatedAt: "2026-11-10T09:15:00+08:00",
+        updatedAt: "2026-11-10T14:30:00+08:00",
         templateVersion: "1.0"
       },
 
@@ -346,10 +425,10 @@ function getInitialSeedState() {
         refNo: null,
         uid: "intern-juan",
         snapshot: {
-          name: "Juan Miguel Dela Cruz",
-          internId: "APG-INT-2026-014",
-          position: "HR/Marketing Associate Intern",
-          department: "Marketing & HR"
+          name: "Prince Lorenz P. Lu-ang",
+          internId: "APG-INT-2026-001",
+          position: "IT Associate Intern",
+          department: "Information Technology"
         },
         type: "half",
         date: "2026-11-24",
@@ -456,9 +535,9 @@ function loadState() {
     if (raw) {
       const parsed = JSON.parse(raw);
       // Ensure seed users & essential structures exist even if loaded from older localStorage
-      parsed.users = { ...seed.users, ...(parsed.users || {}) };
+      parsed.users = { ...(parsed.users || {}), ...seed.users };
       parsed.settings = parsed.settings || seed.settings;
-      parsed.requests = parsed.requests || seed.requests;
+      parsed.requests = { ...(parsed.requests || {}), "req-2026-003": seed.requests["req-2026-003"] };
       return parsed;
     }
   } catch (e) {
@@ -756,45 +835,46 @@ function renderMemberSignatureSlot(req, options = {}) {
     : `<span class="a4-sig-space-placeholder">[Signature required]</span>`;
 }
 
-// Signature area for one person on a group letter
-function renderGroupMemberSignatureSlot(req, member, options = {}) {
-  if (options.blankSignature) return "";
-  const method = req.signatureMethod || "digital";
-  if (method !== "digital") return `<span class="a4-wet-note">Signed by hand</span>`;
-  const src = safeImageSrc(member.signature);
-  return src
-    ? `<img src="${src}" alt="Signature of ${escapeHtml(member.name || "")}" />`
-    : `<span class="a4-sig-space-placeholder">[Signature required]</span>`;
+// Formats position titles so "Associate Intern" or roles are italicized, matching official branding (e.g., "IT Associate Intern" -> "IT <em>Associate Intern</em>")
+function formatDisplayPosition(pos) {
+  if (!pos) return "";
+  const clean = escapeHtml(pos);
+  if (/^(.*?)\s+(Associate\s+Intern)$/i.test(clean)) {
+    return clean.replace(/^(.*?)\s+(Associate\s+Intern)$/i, '$1 <em>$2</em>');
+  }
+  if (/Associate\s+Intern/i.test(clean)) {
+    return clean.replace(/(Associate\s+Intern)/gi, '<em>$1</em>');
+  }
+  if (/Intern$/i.test(clean)) {
+    return clean.replace(/(\b\w+\s+Intern)$/i, '<em>$1</em>');
+  }
+  return `<em>${clean}</em>`;
 }
 
-// Group letter: everyone signs in a 3-column grid, HR signs in the next cell
-function renderGroupSignaturesHTML(req, letterSettings, options, hrSigToRender, isApproved) {
-  const cells = getRequestMembers(req)
-    .map(
-      (m) => `
-        <div class="a4-group-sig">
-          <div class="a4-sig-space">${renderGroupMemberSignatureSlot(req, m, options)}</div>
-          <div class="a4-person-name">${escapeHtml(m.name || "[Name]")}</div>
-          <div class="a4-person-title">${escapeHtml(m.position || "")}</div>
-        </div>`
-    )
-    .join("");
-  const hrPlaceholder = isApproved || options.blankSignature ? "" : "[Signed by HR on approval]";
-  return `
-    <div class="a4-group-signatures">
-      <div class="a4-sig-greeting">Sincerely,</div>
-      <div class="a4-group-sig-grid">
-        ${cells}
-        <div class="a4-group-sig a4-group-sig-hr">
-          <div class="a4-sig-space">
-            ${hrSigToRender ? `<img src="${hrSigToRender}" alt="HR Officer Signature" />` : `<span class="a4-sig-space-placeholder">${hrPlaceholder}</span>`}
-          </div>
-          <div class="a4-person-name">${escapeHtml(letterSettings.signatoryName)}</div>
-          <div class="a4-person-title">${escapeHtml(letterSettings.signatoryTitle)}</div>
-        </div>
-      </div>
-    </div>
-  `;
+// Renders the signatures for the member(s) column
+function renderMembersSignatureSlot(req, options = {}) {
+  if (options.blankSignature) return "";
+  const members = getRequestMembers(req);
+  const method = req.signatureMethod || "digital";
+  if (method === "wet-upload") {
+    return `<span class="a4-wet-note">Signed by hand · photo on file with HR</span>`;
+  }
+  if (method === "wet-paper") {
+    const received = req.paperCopy && req.paperCopy.status === "received";
+    return `<span class="a4-wet-note">Signed by hand · paper copy ${received ? "received by HR" : "to be handed in to HR"}</span>`;
+  }
+
+  // Digital signatures
+  const sigs = members
+    .map((m) => safeImageSrc(m.signature || (m.isFiler ? req.internSignature : "")))
+    .filter(Boolean);
+
+  if (sigs.length > 0) {
+    return `<div style="display:flex; gap:10px; align-items:flex-end;">
+      ${sigs.map((s) => `<img src="${s}" alt="Member Signature" style="max-height:48px; max-width:${sigs.length > 1 ? "100px" : "180px"}; object-fit:contain;" />`).join("")}
+    </div>`;
+  }
+  return `<span class="a4-sig-space-placeholder">[Signature required]</span>`;
 }
 
 function renderLockedLetterHTML(req, letterSettings = state.settings.letter, options = {}) {
@@ -873,21 +953,25 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
         <!-- 4th Paragraph: Closing Appreciation -->
         <p class="a4-body-p">${escapeHtml(isGroupRequest(req) ? letterSettings.thankYouParagraphGroup || DEFAULT_GROUP_THANKS : letterSettings.thankYouParagraph)}</p>
 
-        ${isGroupRequest(req) ? renderGroupSignaturesHTML(req, letterSettings, options, hrSigToRender, isApproved) : `
-        <!-- Dual Signature Section Matching Exact Template Layout -->
+        <!-- Dual Signature Section Matching Required Corporate Format (Single or Group) -->
         <div class="a4-signatures-row">
-          <!-- Intern Signature Column (Left) -->
-          <div class="a4-sig-col">
+          <!-- Intern(s) Signature Column (Left) -->
+          <div class="a4-sig-col a4-sig-col-members">
             <div class="a4-sig-greeting">Sincerely,</div>
             <div class="a4-sig-space">
-              ${renderMemberSignatureSlot(req, options)}
+              ${renderMembersSignatureSlot(req, options)}
             </div>
-            <div class="a4-person-name">${escapeHtml(snapshot.name)}</div>
-            <div class="a4-person-title">${escapeHtml(snapshot.position)}</div>
+            <div class="a4-names-stack">
+              ${getRequestMembers(req)
+                .map((m) => `<div class="a4-person-name">${escapeHtml(m.name || "[Name]")}</div>`)
+                .join("")}
+            </div>
+            <div class="a4-person-title">${formatDisplayPosition(getRequestMembers(req)[0]?.position || snapshot.position)}</div>
           </div>
 
           <!-- HR Signatory Column (Right) -->
-          <div class="a4-sig-col">
+          <div class="a4-sig-col a4-sig-col-hr">
+            <div class="a4-sig-greeting" style="visibility:hidden;">Sincerely,</div>
             <div class="a4-sig-space">
               ${
                 hrSigToRender
@@ -896,9 +980,9 @@ function renderLockedLetterHTML(req, letterSettings = state.settings.letter, opt
               }
             </div>
             <div class="a4-person-name">${escapeHtml(letterSettings.signatoryName)}</div>
-            <div class="a4-person-title">${escapeHtml(letterSettings.signatoryTitle)}</div>
+            <div class="a4-person-title a4-hr-title"><em>${escapeHtml(letterSettings.signatoryTitle)}</em></div>
           </div>
-        </div>`}
+        </div>
       </div>
     </div>
   `;
@@ -1086,21 +1170,18 @@ function renderApp() {
       <div class="demo-bar-left">
         <span class="demo-badge">Final v1.0 Prototype</span>
         <span>Switch Persona / Screen:</span>
-        <button class="demo-switcher-btn ${state.currentUserUid === "intern-juan" ? "active" : ""}" onclick="switchDemoAccount('intern-juan')">
-          👨‍💼 Intern: Juan Dela Cruz (Active)
+        <button class="demo-switcher-btn ${state.currentUserUid === "intern-juan" || state.currentUserUid === "intern-lorenz" ? "active" : ""}" onclick="switchDemoAccount('intern-juan')">
+          👨‍💼 Intern: Prince Lorenz (Active)
+        </button>
+        <button class="demo-switcher-btn ${state.currentUserUid === "intern-lord" ? "active" : ""}" onclick="switchDemoAccount('intern-lord')">
+          🎓 Intern: Lord Bartolome (Active)
+        </button>
+        <button class="demo-switcher-btn ${state.currentUserUid === "intern-aureo" ? "active" : ""}" onclick="switchDemoAccount('intern-aureo')">
+          🎓 Intern: Christopher Aureo (Active)
         </button>
         <button class="demo-switcher-btn ${state.currentUserUid === "intern-sofia" ? "active" : ""}" onclick="switchDemoAccount('intern-sofia')">
           👩‍💼 Intern: Sofia Reyes (Active)
         </button>
-        ${[
-          ["intern-john", "John"],
-          ["intern-mark", "Mark"],
-          ["intern-kevs", "Kevs"]
-        ]
-          .map(
-            ([uid, label]) => `<button class="demo-switcher-btn ${state.currentUserUid === uid ? "active" : ""}" onclick="switchDemoAccount('${uid}')">🎓 Intern: ${label}</button>`
-          )
-          .join("")}
         <button class="demo-switcher-btn ${state.currentUserUid === "emp-carlos" ? "active" : ""}" onclick="switchDemoAccount('emp-carlos')">
           👔 Employee: Carlos Mendoza (Active)
         </button>
@@ -1332,7 +1413,7 @@ function renderHomeScreen() {
           </p>
           <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button type="button" class="btn btn-gold" style="font-size: 12px; padding: 8px 16px; cursor: pointer;" onclick="signInAs('intern-juan')">
-              👨‍💼 Test as Active Intern (Juan Dela Cruz)
+              👨‍💼 Test as Active Intern (Prince Lorenz P. Lu-ang)
             </button>
             <button type="button" class="btn btn-outline" style="font-size: 12px; padding: 8px 16px; cursor: pointer;" onclick="signInAs('hr-chico')">
               🛡️ Test as HR Admin (Jean Ashley Chico)
@@ -1395,7 +1476,7 @@ function renderLoginScreen(mode = "member") {
             ? `
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
             <button type="button" class="btn btn-gold" style="font-size:11.5px; padding:6px 12px;" onclick="signInAs('intern-juan')">
-              👨‍💼 Enter as Intern (Juan Dela Cruz)
+              👨‍💼 Enter as Intern (Prince Lorenz P. Lu-ang)
             </button>
             <button type="button" class="btn btn-outline" style="font-size:11.5px; padding:6px 12px;" onclick="fillDemoCredentials('member')">
               Auto-fill Form

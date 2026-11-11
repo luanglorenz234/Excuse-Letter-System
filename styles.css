@@ -995,12 +995,12 @@ table.data-table tr:hover {
   word-break: break-word;
 }
 
-/* Dual Signatures Section */
+/* Dual Signatures Section Matching Required Corporate Format */
 .a4-signatures-row {
-  margin-top: 30px;
+  margin-top: 28px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  align-items: end;
+  align-items: start;
   column-gap: 40px;
 }
 
@@ -1011,19 +1011,21 @@ table.data-table tr:hover {
 
 .a4-sig-greeting {
   font-size: 13.5px;
+  line-height: 1.4;
   margin-bottom: 6px;
+  color: #000000;
 }
 
 .a4-sig-space {
   height: 52px;
   display: flex;
   align-items: flex-end;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .a4-sig-space img {
   max-height: 48px;
-  max-width: 200px;
+  max-width: 180px;
   object-fit: contain;
 }
 
@@ -1034,16 +1036,36 @@ table.data-table tr:hover {
   padding-bottom: 4px;
 }
 
+.a4-names-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .a4-person-name {
   font-size: 13.5px;
-  font-weight: 800;
+  font-weight: 700;
   color: #000000;
+  line-height: 1.4;
 }
 
 .a4-person-title {
   font-size: 13px;
   color: #000000;
-  margin-top: 1px;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+.a4-person-title em {
+  font-style: italic;
+}
+
+.a4-hr-title {
+  font-style: italic;
+  font-size: 13px;
+  color: #000000;
+  margin-top: 3px;
+  line-height: 1.4;
 }
 
 /* ==========================================
