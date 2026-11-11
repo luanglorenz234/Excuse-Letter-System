@@ -26,6 +26,7 @@ function getInitialSeedState() {
     selectedRequestIdForReview: "req-2026-003",
     editingRequestId: null,
     calendarMonthOffset: 0, // 0 = Nov 2026 (current system month)
+    sidebarCollapsed: false,
 
     settings: {
       letter: {
@@ -816,6 +817,20 @@ function navigateTo(screen, opts = {}) {
   renderApp();
 }
 
+function getUserInitials(name) {
+  if (!name) return "AP";
+  const clean = name.replace(/^(Mr\.|Ms\.|Mrs\.|Dr\.)\s*/i, "").trim();
+  const parts = clean.split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function toggleSidebar() {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  saveState();
+  renderApp();
+}
+
 /* ==========================================
    MAIN RENDER FUNCTION
    ========================================== */
@@ -873,15 +888,24 @@ function renderApp() {
     navItemsHTML = `
       <div class="nav-section-label">${currentUser.role === "employee" ? "Employee Portal" : "Intern Portal"}</div>
       <ul class="nav-list">
-        <li class="nav-item ${state.currentScreen === "intern-dashboard" ? "active" : ""}" onclick="navigateTo('intern-dashboard')">
-          <span>📊 Dashboard & Hours</span>
+        <li class="nav-item ${state.currentScreen === "intern-dashboard" ? "active" : ""}" onclick="navigateTo('intern-dashboard')" title="Dashboard & Hours">
+          <div class="nav-item-content">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Dashboard & Hours</span>
+          </div>
         </li>
-        <li class="nav-item ${state.currentScreen === "new-request" ? "active" : ""}" onclick="navigateTo('new-request', { editRequestId: null })">
-          <span>✍️ New Absence Request</span>
+        <li class="nav-item ${state.currentScreen === "new-request" ? "active" : ""}" onclick="navigateTo('new-request', { editRequestId: null })" title="New Absence Request">
+          <div class="nav-item-content">
+            <span class="nav-icon">✍️</span>
+            <span class="nav-label">New Absence Request</span>
+          </div>
         </li>
-        <li class="nav-item ${state.currentScreen === "my-requests" ? "active" : ""}" onclick="navigateTo('my-requests')">
-          <span>📁 My Requests</span>
-          ${returnedCountForIntern > 0 ? `<span class="nav-badge">${returnedCountForIntern} Revise</span>` : ""}
+        <li class="nav-item ${state.currentScreen === "my-requests" ? "active" : ""}" onclick="navigateTo('my-requests')" title="My Requests">
+          <div class="nav-item-content">
+            <span class="nav-icon">📁</span>
+            <span class="nav-label">My Requests</span>
+          </div>
+          ${returnedCountForIntern > 0 ? `<span class="nav-badge" title="${returnedCountForIntern} requests to revise">${returnedCountForIntern}</span>` : ""}
         </li>
       </ul>
     `;
@@ -889,19 +913,31 @@ function renderApp() {
     navItemsHTML = `
       <div class="nav-section-label">HR Administration</div>
       <ul class="nav-list">
-        <li class="nav-item ${state.currentScreen === "hr-queue" ? "active" : ""}" onclick="navigateTo('hr-queue')">
-          <span>📥 HR Review Queue</span>
-          ${pendingCountForHR > 0 ? `<span class="nav-badge">${pendingCountForHR}</span>` : ""}
+        <li class="nav-item ${state.currentScreen === "hr-queue" ? "active" : ""}" onclick="navigateTo('hr-queue')" title="HR Review Queue">
+          <div class="nav-item-content">
+            <span class="nav-icon">📥</span>
+            <span class="nav-label">Review Queue</span>
+          </div>
+          ${pendingCountForHR > 0 ? `<span class="nav-badge" title="${pendingCountForHR} pending">${pendingCountForHR}</span>` : ""}
         </li>
-        <li class="nav-item ${state.currentScreen === "hr-review" ? "active" : ""}" onclick="navigateTo('hr-review')">
-          <span>🔍 Review Letter Screen</span>
+        <li class="nav-item ${state.currentScreen === "hr-review" ? "active" : ""}" onclick="navigateTo('hr-review')" title="Review Letter Screen">
+          <div class="nav-item-content">
+            <span class="nav-icon">🔍</span>
+            <span class="nav-label">Review Letter</span>
+          </div>
         </li>
-        <li class="nav-item ${state.currentScreen === "hr-calendar" ? "active" : ""}" onclick="navigateTo('hr-calendar')">
-          <span>📅 Attendance Calendar</span>
+        <li class="nav-item ${state.currentScreen === "hr-calendar" ? "active" : ""}" onclick="navigateTo('hr-calendar')" title="Attendance Calendar">
+          <div class="nav-item-content">
+            <span class="nav-icon">📅</span>
+            <span class="nav-label">Calendar</span>
+          </div>
         </li>
-        <li class="nav-item ${state.currentScreen === "hr-settings" ? "active" : ""}" onclick="navigateTo('hr-settings')">
-          <span>⚙️ HR Settings & Accounts</span>
-          ${pendingAccountsCount > 0 ? `<span class="nav-badge">${pendingAccountsCount} New</span>` : ""}
+        <li class="nav-item ${state.currentScreen === "hr-settings" ? "active" : ""}" onclick="navigateTo('hr-settings')" title="HR Settings & Accounts">
+          <div class="nav-item-content">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Settings & Accounts</span>
+          </div>
+          ${pendingAccountsCount > 0 ? `<span class="nav-badge" title="${pendingAccountsCount} new accounts">${pendingAccountsCount}</span>` : ""}
         </li>
       </ul>
     `;
@@ -941,20 +977,30 @@ function renderApp() {
   root.innerHTML = `
     ${demoBarHTML}
     <div class="app-shell">
-      <aside class="sidebar no-print">
+      <aside class="sidebar no-print ${state.sidebarCollapsed ? "collapsed" : ""}">
         <div class="brand-box">
-          <div class="brand-emblem">AP</div>
-          <div>
-            <div class="brand-title">ALPHA PREMIER</div>
-            <div class="brand-subtitle">Absence Request System v1.0</div>
+          <div class="brand-left">
+            <div class="brand-emblem">AP</div>
+            <div class="brand-title-wrap">
+              <div class="brand-title">ALPHA PREMIER</div>
+              <div class="brand-subtitle">Absence System v1.0</div>
+            </div>
           </div>
+          <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="${state.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}">
+            ${state.sidebarCollapsed ? "❯" : "❮"}
+          </button>
         </div>
 
         <div class="user-card">
-          <div class="user-card-name">${escapeHtml(currentUser.name)}</div>
-          <div class="user-card-meta">${escapeHtml(currentUser.position || "Unassigned Position")}</div>
-          <div class="user-card-meta">${escapeHtml(currentUser.internId || "Pending ID")}</div>
-          <span class="user-role-tag">${currentUser.role === "hr" ? "HR Officer" : (currentUser.role === "employee" ? "Employee" : `Intern (${currentUser.status})`)}</span>
+          <div class="user-card-compact" title="${escapeHtml(currentUser.name)} (${escapeHtml(currentUser.position || "")})">
+            <div class="user-avatar-circle">${getUserInitials(currentUser.name)}</div>
+          </div>
+          <div class="user-card-details">
+            <div class="user-card-name">${escapeHtml(currentUser.name)}</div>
+            <div class="user-card-meta">${escapeHtml(currentUser.position || "Unassigned Position")}</div>
+            <div class="user-card-meta">${escapeHtml(currentUser.internId || "Pending ID")}</div>
+            <span class="user-role-tag">${currentUser.role === "hr" ? "HR Officer" : (currentUser.role === "employee" ? "Employee" : `Intern (${currentUser.status})`)}</span>
+          </div>
         </div>
 
         ${navItemsHTML}
