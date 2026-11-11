@@ -1,5 +1,5 @@
 /**
- * Alpha Premier — OJT Absence Request System (Production v1.0)
+ * Alpha Premier — Absence Request System (Production v1.0)
  * Pure Letter Renderer & Client-Side A4 PDF Export Service
  *
  * Implements Section 1 & Section 8 Step 3 of the Final Plan:
@@ -89,21 +89,22 @@ export function getWeekdayDatesList(startYmd, endYmd) {
 }
 
 /**
- * Opening sentence templates (Section 1 of Final Plan):
- * - Full-day:  I am writing to formally request permission to be absent from my OJT duties on {DATE}.
- * - Half-day:  I am writing to formally request permission to be absent from my OJT duties during the {SHIFT} shift ({TIME_RANGE}) of {DATE}.
- * - Multi-day: I am writing to formally request permission to be absent from my OJT duties from {START_DATE} to {END_DATE} ({N} days).
+ * Opening sentence templates:
+ * - Intern:   I respectfully request permission to be absent from my internship duties on {DATE}.
+ * - Employee: I respectfully request permission to be absent from my work duties on {DATE}.
  */
 export function buildOpeningSentenceHTML(req, highlightVars = true) {
   const wrap = (val) =>
     highlightVars ? `<span class="a4-var-highlight">${escapeHtml(val)}</span>` : escapeHtml(val);
+
+  const dutyPhrase = req.memberType === "employee" ? "work duties" : "internship duties";
 
   if (req.type === "half") {
     const shiftText = req.shift || "morning";
     const timeRangeText =
       req.timeRange || (shiftText === "morning" ? "8:00 AM – 12:00 PM" : "1:00 PM – 5:00 PM");
     const dateText = req.date ? formatLongDate(req.date) : "{DATE}";
-    return `I respectfully request permission to be absent from my On-the-Job Training (OJT) duties during the ${wrap(
+    return `I respectfully request permission to be absent from my ${dutyPhrase} during the ${wrap(
       shiftText
     )} shift (${wrap(timeRangeText)}) of ${wrap(dateText)}.`;
   }
@@ -115,13 +116,13 @@ export function buildOpeningSentenceHTML(req, highlightVars = true) {
       req.startDate && req.endDate
         ? countWeekdaysBetween(req.startDate, req.endDate)
         : req.days || "{N}";
-    return `I respectfully request permission to be absent from my On-the-Job Training (OJT) duties from ${wrap(
+    return `I respectfully request permission to be absent from my ${dutyPhrase} from ${wrap(
       startText
     )} to ${wrap(endText)} (${wrap(nDays + (nDays === 1 ? " day" : " days"))}).`;
   }
 
   const dateText = req.date ? formatLongDate(req.date) : "{DATE}";
-  return `I respectfully request permission to be absent from my On-the-Job Training (OJT) duties on ${wrap(
+  return `I respectfully request permission to be absent from my ${dutyPhrase} on ${wrap(
     dateText
   )}.`;
 }

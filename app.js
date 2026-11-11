@@ -1,9 +1,9 @@
 /**
- * Alpha Premier — OJT Absence Request System (Final v1.0)
+ * Alpha Premier — Absence Request System (Final v1.0)
  * Core Application Logic, Pure Letter Renderer, Firestore State & PDF Export
  */
 
-const STORAGE_KEY = "APG_OJT_SYSTEM_V2_STATE";
+const STORAGE_KEY = "APG_SYSTEM_V3_STATE";
 
 // Helper to generate realistic signature Data URLs (SVG encoded as Data URL)
 function createSignatureDataUrl(text, color = "#0c2340") {
@@ -70,6 +70,7 @@ function getInitialSeedState() {
         position: "HR/Marketing Associate Intern",
         department: "Marketing & HR",
         role: "intern",
+        memberType: "intern",
         status: "active",
         requiredHours: 480,
         renderedHours: 240,
@@ -84,6 +85,7 @@ function getInitialSeedState() {
         position: "Operations & Finance Intern",
         department: "Operations",
         role: "intern",
+        memberType: "intern",
         status: "active",
         requiredHours: 400,
         renderedHours: 192,
@@ -98,11 +100,27 @@ function getInitialSeedState() {
         position: "",
         department: "",
         role: "intern",
+        memberType: "intern",
         status: "pending",
         requiredHours: 480,
         renderedHours: 0,
         savedSignature: "",
         createdAt: "2026-11-09T14:20:00+08:00"
+      },
+      "emp-carlos": {
+        uid: "emp-carlos",
+        name: "Carlos Eduardo Mendoza",
+        email: "carlos.mendoza@alphapremier.com",
+        internId: "APG-EMP-2025-082",
+        position: "Operations Associate",
+        department: "Operations",
+        role: "employee",
+        memberType: "employee",
+        status: "active",
+        requiredHours: 0,
+        renderedHours: 0,
+        savedSignature: createSignatureDataUrl("Carlos E. Mendoza", "#0c2340"),
+        createdAt: "2025-06-01T08:30:00+08:00"
       }
     },
 
@@ -269,7 +287,7 @@ function getInitialSeedState() {
         timeRange: "1:00 PM – 5:00 PM",
         hoursImpact: 4,
         reasonCategory: "Academic",
-        reasonDetails: "I need to meet with my OJT Faculty Coordinator at the university college dean's office to submit my midterm evaluation forms.",
+        reasonDetails: "I need to meet with my Faculty Coordinator at the university college dean's office to submit my midterm evaluation forms.",
         attachment: null,
         internSignature: DEFAULT_JUAN_SIG,
         status: "returned",
@@ -519,23 +537,25 @@ function buildOpeningSentenceHTML(req, highlightVars = true) {
   const wrap = (val) =>
     highlightVars ? `<span class="a4-var-highlight">${escapeHtml(val)}</span>` : escapeHtml(val);
 
+  const dutyPhrase = req.memberType === "employee" ? "work duties" : "internship duties";
+
   if (req.type === "half") {
     const shiftText = req.shift || "morning";
     const timeRangeText = req.timeRange || (shiftText === "morning" ? "8:00 AM – 12:00 PM" : "1:00 PM – 5:00 PM");
     const dateText = req.date ? formatLongDate(req.date) : "{DATE}";
-    return `I respectfully request permission to be absent from my On-the-Job Training (OJT) duties during the ${wrap(shiftText)} shift (${wrap(timeRangeText)}) of ${wrap(dateText)}.`;
+    return `I respectfully request permission to be absent from my ${dutyPhrase} during the ${wrap(shiftText)} shift (${wrap(timeRangeText)}) of ${wrap(dateText)}.`;
   }
 
   if (req.type === "multi") {
     const startText = req.startDate ? formatLongDate(req.startDate) : "{START_DATE}";
     const endText = req.endDate ? formatLongDate(req.endDate) : "{END_DATE}";
     const nDays = req.startDate && req.endDate ? countWeekdaysBetween(req.startDate, req.endDate) : (req.days || "{N}");
-    return `I respectfully request permission to be absent from my On-the-Job Training (OJT) duties from ${wrap(startText)} to ${wrap(endText)} (${wrap(nDays + (nDays === 1 ? " day" : " days"))}).`;
+    return `I respectfully request permission to be absent from my ${dutyPhrase} from ${wrap(startText)} to ${wrap(endText)} (${wrap(nDays + (nDays === 1 ? " day" : " days"))}).`;
   }
 
   // Default: Full-day
   const dateText = req.date ? formatLongDate(req.date) : "{DATE}";
-  return `I respectfully request permission to be absent from my On-the-Job Training (OJT) duties on ${wrap(dateText)}.`;
+  return `I respectfully request permission to be absent from my ${dutyPhrase} on ${wrap(dateText)}.`;
 }
 
 function renderLockedLetterHTML(req, letterSettings = state.settings.letter, options = {}) {
@@ -822,6 +842,9 @@ function renderApp() {
         <button class="demo-switcher-btn ${state.currentUserUid === "intern-sofia" ? "active" : ""}" onclick="switchDemoAccount('intern-sofia')">
           👩‍💼 Intern: Sofia Reyes (Active)
         </button>
+        <button class="demo-switcher-btn ${state.currentUserUid === "emp-carlos" ? "active" : ""}" onclick="switchDemoAccount('emp-carlos')">
+          👔 Employee: Carlos Mendoza (Active)
+        </button>
         <button class="demo-switcher-btn ${state.currentUserUid === "intern-maria" ? "active" : ""}" onclick="switchDemoAccount('intern-maria')">
           ⏳ Intern: Maria Santos (Pending Activation)
         </button>
@@ -846,12 +869,12 @@ function renderApp() {
 
   // Sidebar Items based on Role
   let navItemsHTML = "";
-  if (currentUser.role === "intern") {
+  if (currentUser.role === "intern" || currentUser.role === "employee") {
     navItemsHTML = `
-      <div class="nav-section-label">Intern Portal</div>
+      <div class="nav-section-label">${currentUser.role === "employee" ? "Employee Portal" : "Intern Portal"}</div>
       <ul class="nav-list">
         <li class="nav-item ${state.currentScreen === "intern-dashboard" ? "active" : ""}" onclick="navigateTo('intern-dashboard')">
-          <span>📊 Dashboard & OJT Hours</span>
+          <span>📊 Dashboard & Hours</span>
         </li>
         <li class="nav-item ${state.currentScreen === "new-request" ? "active" : ""}" onclick="navigateTo('new-request', { editRequestId: null })">
           <span>✍️ New Absence Request</span>
@@ -923,7 +946,7 @@ function renderApp() {
           <div class="brand-emblem">AP</div>
           <div>
             <div class="brand-title">ALPHA PREMIER</div>
-            <div class="brand-subtitle">OJT Absence System v1.0</div>
+            <div class="brand-subtitle">Absence Request System v1.0</div>
           </div>
         </div>
 
@@ -931,7 +954,7 @@ function renderApp() {
           <div class="user-card-name">${escapeHtml(currentUser.name)}</div>
           <div class="user-card-meta">${escapeHtml(currentUser.position || "Unassigned Position")}</div>
           <div class="user-card-meta">${escapeHtml(currentUser.internId || "Pending ID")}</div>
-          <span class="user-role-tag">${currentUser.role === "hr" ? "HR Officer" : `Intern (${currentUser.status})`}</span>
+          <span class="user-role-tag">${currentUser.role === "hr" ? "HR Officer" : (currentUser.role === "employee" ? "Employee" : `Intern (${currentUser.status})`)}</span>
         </div>
 
         ${navItemsHTML}
@@ -972,7 +995,7 @@ function renderLoginScreen() {
             <div class="brand-emblem">AP</div>
             <div>
               <div style="font-weight:800; color:var(--apg-navy); font-size:16px;">ALPHA PREMIER GROUP</div>
-              <div style="font-size:12px; color:var(--text-muted);">OJT Leave of Absence Portal</div>
+              <div style="font-size:12px; color:var(--text-muted);">Leave of Absence Portal</div>
             </div>
           </div>
 
@@ -1077,7 +1100,7 @@ function renderPendingInternScreen(user) {
       <h2 class="page-title">Account Pending HR Activation</h2>
       <p style="color:var(--text-muted); margin:12px 0 20px; font-size:14.5px;">
         Welcome, <strong>${escapeHtml(user.name)}</strong> (${escapeHtml(user.email)}).<br/>
-        To ensure every official Alpha Premier letter uses standardized titles and IDs (preventing typos like <em>"MarketingAssociate"</em>), HR must activate your account and assign your <strong>Intern ID</strong>, <strong>Official Position</strong>, <strong>Department</strong>, and <strong>Required OJT Hours</strong> before you can file absence requests.
+        To ensure every official Alpha Premier letter uses standardized titles and IDs (preventing typos like <em>"MarketingAssociate"</em>), HR must activate your account and assign your <strong>ID Number</strong>, <strong>Official Position</strong>, <strong>Department</strong>, and <strong>Required / Target Hours</strong> before you can file absence requests.
       </p>
       <div style="background:#f8fafc; border:1px solid var(--border); padding:16px; border-radius:8px; text-align:left; font-size:13px; margin-bottom:20px;">
         <div><strong>Current Status:</strong> <span class="status-pill status-submitted">Pending HR Activation</span></div>
@@ -1127,7 +1150,7 @@ function renderInternDashboard(user) {
   return `
     <div class="page-header">
       <div>
-        <h1 class="page-title">Intern Dashboard</h1>
+        <h1 class="page-title">${user.role === "employee" ? "Employee Dashboard" : "Dashboard"}</h1>
         <p class="page-subtitle">Locked Profile Snapshot: <strong>${escapeHtml(user.name)}</strong> · ${escapeHtml(user.position)} · ID: <code>${escapeHtml(user.internId)}</code></p>
       </div>
       <button class="btn btn-primary" onclick="navigateTo('new-request', { editRequestId: null })">
@@ -1137,16 +1160,16 @@ function renderInternDashboard(user) {
 
     ${returnedAlertHTML}
 
-    <!-- OJT Hours Impact Card (Decision 8) -->
+    <!-- Hours Impact Card -->
     <div class="card">
       <div class="card-header">
-        <span class="card-title">⏱️ OJT Hours Tracker & Absence Deduction Impact</span>
+        <span class="card-title">⏱️ Hours Tracker & Absence Deduction Impact</span>
         <span style="font-size:12px; color:var(--text-muted);">Rule: Full-day = 8h · Half-day = 4h · Multi-day = 8h × weekdays (Approved only deducts)</span>
       </div>
       <div class="card-body">
         <div class="stats-grid" style="margin-bottom:14px;">
           <div class="stat-card">
-            <div class="stat-label">Required OJT Hours</div>
+            <div class="stat-label">${user.role === "employee" ? "Target Work Hours" : "Required Hours"}</div>
             <div class="stat-value">${hrs.required} h</div>
             <div class="stat-sub">Set by HR upon activation</div>
           </div>
@@ -1250,7 +1273,7 @@ function renderInternDashboard(user) {
               <div style="font-weight:700;">${escapeHtml(user.name)}</div>
             </div>
             <div>
-              <div style="color:var(--text-light); font-size:11.5px;">INTERN ID (HR LOCKED)</div>
+              <div style="color:var(--text-light); font-size:11.5px;">ID NUMBER (HR LOCKED)</div>
               <div style="font-weight:700;">${escapeHtml(user.internId)}</div>
             </div>
             <div>
@@ -1339,6 +1362,18 @@ function renderNewRequestScreen(user) {
           <div style="background:#f8fafc; border:1px solid var(--border); border-radius:7px; padding:10px 12px; margin-bottom:16px; font-size:12px;">
             <div style="font-weight:700; color:var(--apg-navy); margin-bottom:3px;">🔒 Auto-Snapshotted from Profile:</div>
             <div><strong>${escapeHtml(user.name)}</strong> · ${escapeHtml(user.position)} · <code>${escapeHtml(user.internId)}</code></div>
+          </div>
+
+          <!-- Role / Member Type Dropdown (Intern or Employee) -->
+          <div class="form-group">
+            <label class="form-label">
+              <span>Member Type *</span>
+              <span style="font-weight:400; font-size:11.5px; color:var(--text-light);">Select whether filing as Intern or Employee</span>
+            </label>
+            <select id="f-member-type" class="form-control" onchange="updateLiveLetterPreview()">
+              <option value="intern" ${initialData.memberType === "intern" || (!initialData.memberType && user.role !== "employee") ? "selected" : ""}>Intern</option>
+              <option value="employee" ${initialData.memberType === "employee" || user.role === "employee" ? "selected" : ""}>Employee</option>
+            </select>
           </div>
 
           <!-- Absence Type -->
@@ -1511,6 +1546,7 @@ function setFormAbsenceType(type) {
 
 function gatherDraftFormObject() {
   const user = getCurrentUser();
+  const memberType = document.getElementById("f-member-type")?.value || (user.role === "employee" ? "employee" : "intern");
   const type = document.getElementById("f-type")?.value || "full";
   const date = document.getElementById("f-date")?.value || "";
   const startDate = document.getElementById("f-start-date")?.value || "";
@@ -1535,6 +1571,7 @@ function gatherDraftFormObject() {
     id: state.editingRequestId || "DRAFT-PREVIEW",
     refNo: null,
     uid: user.uid,
+    memberType,
     snapshot: {
       name: user.name,
       internId: user.internId,
@@ -1593,7 +1630,7 @@ function updateLiveLetterPreview() {
 }
 
 function initNewRequestInteractivity() {
-  ["f-date", "f-start-date", "f-end-date", "f-shift", "f-timerange", "f-category", "f-details"].forEach((id) => {
+  ["f-member-type", "f-date", "f-start-date", "f-end-date", "f-shift", "f-timerange", "f-category", "f-details"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("input", () => {
@@ -1603,6 +1640,9 @@ function initNewRequestInteractivity() {
             tr.value = el.value === "morning" ? "8:00 AM – 12:00 PM" : "1:00 PM – 5:00 PM";
           }
         }
+        updateLiveLetterPreview();
+      });
+      el.addEventListener("change", () => {
         updateLiveLetterPreview();
       });
     }
@@ -2140,7 +2180,7 @@ function renderHRQueueScreen() {
 
 function exportFilteredRequestsCSV() {
   const allReqs = Object.values(state.requests).filter((r) => r.status !== "draft");
-  const headers = ["RefNo", "RequestID", "InternName", "InternID", "Position", "Department", "Type", "DateOrRange", "Shift", "HoursImpact", "ReasonCategory", "Status", "ReviewedBy", "ReviewRemarks"];
+  const headers = ["RefNo", "RequestID", "MemberName", "MemberID", "Position", "Department", "Type", "DateOrRange", "Shift", "HoursImpact", "ReasonCategory", "Status", "ReviewedBy", "ReviewRemarks"];
   const rows = allReqs.map((r) => [
     r.refNo || "",
     r.id,
@@ -2167,7 +2207,7 @@ function exportFilteredRequestsCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `AlphaPremier_OJT_Absences_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `AlphaPremier_Absences_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast("Exported filtered absence analytics to CSV.");
@@ -2226,7 +2266,7 @@ function renderHRReviewScreen() {
                 <textarea id="hr-review-remarks" class="form-control" rows="3" placeholder="Enter approval note, or specify why the request is being returned for revision or declined..."></textarea>
               </div>
               <div style="background:#f8fafc; border:1px solid var(--border); padding:10px 12px; border-radius:7px; font-size:12px; margin-bottom:14px;">
-                <strong>On Approval Transaction:</strong> Assigns next reference number <code>APG-EL-2026-${String(state.counters["2026"].nextRefNo).padStart(4, "0")}</code>, stamps Ms. Chico's HR signature & approval date onto the letter, and deducts <strong>${req.hoursImpact} hours</strong> from OJT hours.
+                <strong>On Approval Transaction:</strong> Assigns next reference number <code>APG-EL-2026-${String(state.counters["2026"].nextRefNo).padStart(4, "0")}</code>, stamps Ms. Chico's HR signature & approval date onto the letter, and deducts <strong>${req.hoursImpact} hours</strong> from hours balance.
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="btn btn-success" style="flex:1.2;" onclick="handleHRDecision('${req.id}', 'approved')">
@@ -2257,19 +2297,20 @@ function renderHRReviewScreen() {
           </div>
         </div>
 
-        <!-- Request Details & Intern OJT Hours Snapshot -->
+        <!-- Request Details & Member Hours Snapshot -->
         <div class="card">
           <div class="card-header">
-            <span class="card-title">📌 Request Metadata & Intern Hours Impact</span>
+            <span class="card-title">📌 Request Metadata & Hours Impact</span>
           </div>
           <div class="card-body" style="font-size:13px;">
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
-              <div><strong>Intern Name:</strong> ${escapeHtml(req.snapshot?.name)}</div>
-              <div><strong>Intern ID:</strong> <code>${escapeHtml(req.snapshot?.internId)}</code></div>
+              <div><strong>Name:</strong> ${escapeHtml(req.snapshot?.name)}</div>
+              <div><strong>ID Number:</strong> <code>${escapeHtml(req.snapshot?.internId)}</code></div>
+              <div><strong>Member Type:</strong> <span class="user-role-tag">${escapeHtml(req.memberType || "intern")}</span></div>
               <div><strong>Position:</strong> ${escapeHtml(req.snapshot?.position)}</div>
               <div><strong>Reason Category:</strong> ${escapeHtml(req.reasonCategory)}</div>
               <div><strong>Hours Impact:</strong> -${req.hoursImpact} hours</div>
-              <div><strong>Intern Remaining Hours:</strong> ${internHours.remaining} / ${internHours.required} h</div>
+              <div><strong>Remaining Hours:</strong> ${internHours.remaining} / ${internHours.required} h</div>
             </div>
           </div>
         </div>
@@ -2505,13 +2546,13 @@ function renderHRCalendarScreen() {
    ========================================== */
 function renderHRSettingsScreen() {
   const s = state.settings.letter;
-  const interns = Object.values(state.users).filter((u) => u.role === "intern");
+  const members = Object.values(state.users).filter((u) => u.role === "intern" || u.role === "employee");
 
   return `
     <div class="page-header">
       <div>
-        <h1 class="page-title">HR Settings, Locked Template & Intern Accounts</h1>
-        <p class="page-subtitle">Manage the locked Alpha Premier letter wording, Ms. Chico's approval signature, feature flags, and intern profile activation.</p>
+        <h1 class="page-title">HR Settings, Locked Template & Member Accounts</h1>
+        <p class="page-subtitle">Manage the locked Alpha Premier letter wording, Ms. Chico's approval signature, feature flags, and member profile activation.</p>
       </div>
     </div>
 
@@ -2576,7 +2617,7 @@ function renderHRSettingsScreen() {
                 <span>📎 Enable Firebase Storage Attachments (<code>attachmentsEnabled</code>)</span>
                 <input type="checkbox" id="set-attachments" ${s.attachmentsEnabled ? "checked" : ""} style="width:18px; height:18px;" />
               </label>
-              <div class="form-hint">Decision #4: Keep off until Firebase Storage (Blaze plan) is enabled, or toggle on now to test the file attachment field in the Intern form.</div>
+              <div class="form-hint">Decision #4: Keep off until Firebase Storage (Blaze plan) is enabled, or toggle on now to test the file attachment field in the form.</div>
             </div>
 
             <button type="submit" class="btn btn-primary" style="width:100%;">Save Locked Letterhead Settings</button>
@@ -2584,18 +2625,18 @@ function renderHRSettingsScreen() {
         </div>
       </div>
 
-      <!-- Intern Account Management & Activation (Decision 6) -->
+      <!-- Member Account Management & Activation -->
       <div class="card">
         <div class="card-header">
-          <span class="card-title">👥 Intern Accounts & Profile Lock (<code>users/{uid}</code>)</span>
-          <span style="font-size:11.5px; color:var(--text-muted);">Decision #6: HR sets ID, Position & Hours</span>
+          <span class="card-title">👥 Member Accounts & Profile Lock (<code>users/{uid}</code>)</span>
+          <span style="font-size:11.5px; color:var(--text-muted);">HR sets ID, Position & Role</span>
         </div>
         <div class="card-body">
           <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:14px;">
-            Interns cannot edit their own Intern ID, Position, Department, or Required Hours—preventing formatting typos like <em>"MarketingAssociate"</em> on official letters.
+            Members cannot edit their own ID Number, Position, Department, or Required Hours—preventing formatting typos like <em>"MarketingAssociate"</em> on official letters.
           </p>
 
-          ${interns
+          ${members
             .map(
               (u) => `
             <div style="border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px; background:${u.status === "pending" ? "#fffbeb" : "#ffffff"};">
@@ -2604,30 +2645,40 @@ function renderHRSettingsScreen() {
                   <strong style="font-size:14px; color:var(--apg-navy);">${escapeHtml(u.name)}</strong>
                   <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(u.email)}</div>
                 </div>
-                <span class="status-pill ${u.status === "active" ? "status-approved" : u.status === "pending" ? "status-submitted" : "status-declined"}">
-                  ${escapeHtml(u.status)}
-                </span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <span class="user-role-tag">${escapeHtml(u.role || "intern")}</span>
+                  <span class="status-pill ${u.status === "active" ? "status-approved" : u.status === "pending" ? "status-submitted" : "status-declined"}">
+                    ${escapeHtml(u.status)}
+                  </span>
+                </div>
               </div>
 
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
                 <div>
-                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">INTERN ID</label>
-                  <input type="text" id="u-id-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.internId)}" placeholder="e.g. APG-INT-2026-025" />
+                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">MEMBER TYPE</label>
+                  <select id="u-role-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;">
+                    <option value="intern" ${u.role === "intern" ? "selected" : ""}>Intern</option>
+                    <option value="employee" ${u.role === "employee" ? "selected" : ""}>Employee</option>
+                  </select>
                 </div>
                 <div>
+                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">ID NUMBER</label>
+                  <input type="text" id="u-id-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.internId)}" placeholder="e.g. APG-INT-2026-025 or APG-EMP-001" />
+                </div>
+                <div style="grid-column: span 2;">
                   <label style="font-size:11px; font-weight:700; color:var(--text-muted);">DEPARTMENT</label>
                   <input type="text" id="u-dept-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.department)}" placeholder="e.g. Marketing & HR" />
                 </div>
                 <div style="grid-column: span 2;">
                   <label style="font-size:11px; font-weight:700; color:var(--text-muted);">OFFICIAL POSITION TITLE (LANDS ON LETTER)</label>
-                  <input type="text" id="u-pos-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.position)}" placeholder="e.g. HR/Marketing Associate Intern" />
+                  <input type="text" id="u-pos-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${escapeHtml(u.position)}" placeholder="e.g. HR/Marketing Associate or Operations Specialist" />
                 </div>
                 <div>
-                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">REQUIRED HOURS</label>
-                  <input type="number" id="u-reqh-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${u.requiredHours || 480}" />
+                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">REQUIRED / TARGET HOURS</label>
+                  <input type="number" id="u-reqh-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${u.requiredHours || 0}" />
                 </div>
                 <div>
-                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">RENDERED HOURS</label>
+                  <label style="font-size:11px; font-weight:700; color:var(--text-muted);">RENDERED / CREDITED HOURS</label>
                   <input type="number" id="u-renh-${u.uid}" class="form-control" style="padding:6px 9px; font-size:12.5px;" value="${u.renderedHours || 0}" />
                 </div>
               </div>
@@ -2726,17 +2777,20 @@ function updateInternAccountByHR(uid, newStatus) {
   const u = state.users[uid];
   if (!u) return;
 
+  const role = document.getElementById(`u-role-${uid}`)?.value || u.role || "intern";
   const internId = document.getElementById(`u-id-${uid}`)?.value.trim() || "";
   const dept = document.getElementById(`u-dept-${uid}`)?.value.trim() || "";
   const pos = document.getElementById(`u-pos-${uid}`)?.value.trim() || "";
-  const reqH = Number(document.getElementById(`u-reqh-${uid}`)?.value) || 480;
+  const reqH = Number(document.getElementById(`u-reqh-${uid}`)?.value) || 0;
   const renH = Number(document.getElementById(`u-renh-${uid}`)?.value) || 0;
 
   if (newStatus === "active" && (!internId || !pos || !dept)) {
-    showToast("Please assign an Intern ID, Official Position, and Department to activate this intern.");
+    showToast("Please assign an ID Number, Official Position, and Department to activate this member.");
     return;
   }
 
+  u.role = role;
+  u.memberType = role;
   u.internId = internId;
   u.department = dept;
   u.position = pos;
