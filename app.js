@@ -1224,6 +1224,14 @@ function switchDemoAccount(uidOrAuth) {
 }
 
 function navigateTo(screen, opts = {}) {
+  const currentUser = getCurrentUser();
+  const isHR = currentUser && currentUser.role === "hr";
+
+  // Security guard: Non-HR users cannot navigate to HR administrative screens
+  if (!isHR && (screen === "hr-queue" || screen === "hr-review" || screen === "hr-settings")) {
+    screen = "intern-dashboard";
+  }
+
   state.currentScreen = screen;
   if (opts.editRequestId !== undefined) {
     state.editingRequestId = opts.editRequestId;
@@ -1394,6 +1402,11 @@ function renderApp() {
   if (currentUser.role !== "hr" && currentUser.status !== "active") {
     mainViewHTML = renderPendingInternScreen(currentUser);
   } else {
+    // Non-HR users cannot access HR administrative screens
+    if (currentUser.role !== "hr" && (state.currentScreen === "hr-queue" || state.currentScreen === "hr-review" || state.currentScreen === "hr-settings")) {
+      state.currentScreen = "intern-dashboard";
+    }
+
     switch (state.currentScreen) {
       case "intern-dashboard":
         mainViewHTML = renderInternDashboard(currentUser);
@@ -3823,6 +3836,8 @@ function handleHRDecision(reqId, newStatus) {
    (Month Grid of Absences across all interns)
    ========================================== */
 function renderHRCalendarScreen() {
+  const currentUser = getCurrentUser();
+  const isHR = currentUser && currentUser.role === "hr";
   const now = new Date();
   const baseDate = new Date(now.getFullYear(), now.getMonth() + (state.calendarMonthOffset || 0), 1); // current month default
   const year = baseDate.getFullYear();
@@ -3865,13 +3880,38 @@ function renderHRCalendarScreen() {
       <div class="cal-cell">
         <div class="cal-date-num">${day}</div>
         ${events
-          .map(
-            (ev) => `
-          <div class="cal-event ${ev.status}" onclick="navigateTo('hr-review', { reviewRequestId: '${ev.id}' })" title="Click to review ${escapeHtml(listRequestNames(ev))}">
-            ${ev.type === "half" ? (ev.shift === "morning" ? "[AM]" : "[PM]") : "[FULL]"} ${escapeHtml((ev.snapshot?.name || "").split(" ")[0])}${isGroupRequest(ev) ? ` +${getRequestMembers(ev).length - 1}` : ""}
-          </div>
-        `
-          )
+          .map((ev) => {
+            const prefix = ev.type === "half" ? (ev.shift === "morning" ? "[AM]" : "[PM]") : "[FULL]";
+            const nameLabel = escapeHtml((ev.snapshot?.name || "").split(" ")[0]);
+            const groupSuffix = isGroupRequest(ev) ? ` +${getRequestMembers(ev).length - 1}` : "";
+            const displayTitle = `${prefix} ${nameLabel}${groupSuffix}`;
+            const fullNames = escapeHtml(listRequestNames(ev));
+
+            if (isHR) {
+              // HR can navigate to review and process the letter
+              return `
+                <div class="cal-event ${ev.status}" onclick="navigateTo('hr-review', { reviewRequestId: '${ev.id}' })" title="Click to review ${fullNames} (${ev.status})" style="cursor:pointer;">
+                  ${displayTitle}
+                </div>
+              `;
+            } else {
+              // Interns / Users: View-only calendar. If it's their own request, they can preview their letter; otherwise it's read-only.
+              const isFilerOrMember = ev.uid === currentUser?.uid || (ev.groupMembers && ev.groupMembers.some(m => m.uid === currentUser?.uid));
+              if (isFilerOrMember) {
+                return `
+                  <div class="cal-event ${ev.status}" onclick="openLetterModal('${ev.id}')" title="Your request: Click to preview letter" style="cursor:pointer; border-left:3px solid var(--apg-gold);">
+                    ${displayTitle} (You)
+                  </div>
+                `;
+              } else {
+                return `
+                  <div class="cal-event ${ev.status} view-only" title="${fullNames} — ${escapeHtml(ev.reasonCategory || 'Absence')} (${ev.status})" style="cursor:default; pointer-events:auto; opacity:0.88;">
+                    ${displayTitle}
+                  </div>
+                `;
+              }
+            }
+          })
           .join("")}
       </div>
     `);
@@ -3880,8 +3920,12 @@ function renderHRCalendarScreen() {
   return `
     <div class="page-header">
       <div>
-        <h1 class="page-title">HR Attendance & Absence Calendar</h1>
-        <p class="page-subtitle">Month view of approved and pending intern absences. Click any badge to inspect the official letter.</p>
+        <h1 class="page-title">${isHR ? "HR Attendance & Absence Calendar" : "Attendance & Absence Calendar"}</h1>
+        <p class="page-subtitle">${
+          isHR
+            ? "Month view of approved and pending intern absences. Click any badge to navigate to the review screen."
+            : "View-only schedule of intern absences across departments. Approved and scheduled leaves are displayed below."
+        }</p>
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         <select class="form-control" style="width:auto;" onchange="window.calStatusFilter=this.value; renderApp();">
