@@ -1,0 +1,363 @@
+/* The window's left edge. It stays put while the document scrolls beside it.
+   Every icon and the avatar are centred on the same line, 32px from the window's
+   edge, in both widths: collapsing takes the words away and nothing moves. */
+
+.sidebar {
+  --sidebar-expanded: 248px;
+  --sidebar-rail: 64px;
+  --sidebar-pad: var(--space-4);
+
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--sidebar-expanded);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  border-right: var(--border-width) solid var(--border-soft);
+  background: var(--surface);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sidebar--collapsed {
+  width: var(--sidebar-rail);
+}
+
+/* Only when someone toggles it: a remembered state is simply there. Width is
+   the one size change that animates, briefly, because the content beside it
+   reflows; tokens.css drops the duration to 0 for reduced motion. */
+.sidebar--animate {
+  transition: width var(--dur-move) var(--ease-out);
+}
+
+/* ---- the brand word ------------------------------------------------------ */
+
+.sidebar__brand-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-height: 56px;
+  padding-inline: var(--space-9);
+}
+
+.sidebar__brand {
+  font-size: var(--text-title);
+}
+
+.sidebar__brand-short {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar__brand-row {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.sidebar--collapsed .sidebar__brand-full {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar__brand-short {
+  display: inline;
+  font-size: var(--text-name);
+  line-height: var(--lh-name);
+}
+
+/* ---- items: nav links and the footer's buttons ------------------------ */
+
+.sidebar__nav {
+  flex: none;
+  padding: var(--space-2) var(--sidebar-pad);
+}
+
+.sidebar__list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sidebar__item {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-6);
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--space-4) 0 var(--space-7);
+  border: 0;
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--heading-font);
+  font-size: var(--text-meta);
+  line-height: var(--lh-meta);
+  font-weight: var(--weight-label);
+  text-align: start;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* The label comes first in the source, so it is what the link is called;
+   the icon is drawn first. */
+.sidebar__icon {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.sidebar__label {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.sidebar__count {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+/* Hover is an overlay that fades in (DESIGN.md §7). */
+.sidebar__item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--neutral-bg);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.sidebar__item:hover {
+  color: var(--text);
+}
+
+.sidebar__item:hover::before {
+  opacity: 1;
+}
+
+.sidebar__item:focus-visible {
+  outline-offset: -2px;
+}
+
+/* What is on show: selected, gold's third job. A gold mark at the window's
+   edge, a wash and brighter text, so it isn't colour alone. */
+.sidebar__item[aria-current]:not([aria-current="false"]) {
+  color: var(--text);
+}
+
+.sidebar__item[aria-current]:not([aria-current="false"])::before {
+  opacity: 1;
+}
+
+.sidebar__item[aria-current]:not([aria-current="false"])::after {
+  content: "";
+  position: absolute;
+  top: var(--space-4);
+  bottom: var(--space-4);
+  left: calc(var(--sidebar-pad) * -1);
+  width: 3px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--gold);
+  transform-origin: 0 50%;
+  animation: sidebar-mark var(--dur-enter) var(--ease-out) both;
+}
+
+@keyframes sidebar-mark {
+  from {
+    opacity: 0;
+    transform: scaleY(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- between the nav and you ------------------------------------------- */
+
+.sidebar__spacer {
+  flex: 1 1 auto;
+}
+
+.sidebar__avatar {
+  position: relative;
+  display: grid;
+  grid-column: 1;
+  grid-row: 1;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-raised);
+  color: var(--text-label);
+  font-family: var(--heading-font);
+  font-size: var(--text-caption);
+  line-height: 1;
+  font-weight: var(--weight-heading);
+}
+
+/* ---- you ----------------------------------------------------------------- */
+
+.sidebar__footer {
+  display: grid;
+  flex: none;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--sidebar-pad);
+  border-top: var(--border-width) solid var(--border-soft);
+}
+
+.sidebar__user {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-5);
+  min-height: 48px;
+  padding: 0 var(--space-3);
+}
+
+.sidebar__avatar--me {
+  width: 36px;
+  height: 36px;
+}
+
+.sidebar__who {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  white-space: nowrap;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.sidebar__user-name {
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--text-meta);
+  line-height: var(--lh-caption);
+  text-overflow: ellipsis;
+}
+
+.sidebar__user-role {
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+}
+
+.sidebar__toggle .sidebar__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.sidebar__kbd {
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--body-font);
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+  font-weight: 400;
+}
+
+/* ---- the rail ------------------------------------------------------------ */
+
+/* Words go invisible but stay in the page, so every link and button keeps
+   its name for screen readers; a tooltip shows it on hover and focus. */
+.sidebar--collapsed .sidebar__label,
+.sidebar--collapsed .sidebar__who {
+  opacity: 0;
+}
+
+/* The count rides on the icon's corner. */
+.sidebar--collapsed .sidebar__count {
+  position: absolute;
+  top: 0;
+  left: 26px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-2);
+}
+
+/* ---- the tooltip --------------------------------------------------------- */
+
+.sidebar__tip {
+  position: fixed;
+  z-index: 60;
+  max-width: 280px;
+  padding: var(--space-2) var(--space-5);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--tip-bg);
+  color: var(--text);
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+  pointer-events: none;
+  transform: translateY(-50%);
+  animation: sidebar-tip var(--dur-fast) var(--ease-out) both;
+}
+
+@keyframes sidebar-tip {
+  from {
+    opacity: 0;
+  }
+}
+
+/* This app's version, under Check for updates: words when open, a short tag on the rail. */
+.sidebar__version {
+  margin: 0;
+  padding: var(--space-1) var(--space-3) 0;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  line-height: var(--lh-caption);
+}
+
+.sidebar__version-short {
+  display: none;
+}
+
+.sidebar--collapsed .sidebar__version {
+  text-align: center;
+  padding-inline: 0;
+}
+
+.sidebar--collapsed .sidebar__version-short {
+  display: inline;
+}
+
+.sidebar--collapsed .sidebar__version .sidebar__label {
+  display: none;
+}
+
+/* The version opens What's new. */
+.sidebar__version--link {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar__version--link:hover {
+  color: var(--text);
+}
+
+.sidebar__version--link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}

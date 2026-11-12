@@ -1,0 +1,47 @@
+[package]
+name = "apg-excuse-letters"
+version = "1.0.0"
+description = "APG Excuse Letters: file absence letters, sign them, and have HR approve them"
+authors = ["Alpha Premier Group"]
+edition = "2024"
+rust-version = "1.90"
+publish = false
+
+# Same shape as APG Post-It, so the two apps can be joined later. Rust does only
+# what the WebView can't: keep the data in SQLite on this PC and save the CSV
+# export to Downloads. Every rule stays in TypeScript (src/core).
+#
+# The Tauri crates and plugins are pinned to the same versions as APG Post-It,
+# and match the npm packages in ../package.json minor for minor.
+
+[lib]
+# The `_lib` suffix keeps the library's name apart from the binary's; on
+# Windows the two would otherwise collide (rust-lang/cargo#8519).
+name = "apg_excuse_letters_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.3", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.4", features = [] }
+tauri-plugin-opener = "=2.7.2"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.154"
+# SQLite, compiled into the app: nothing to install on the PC.
+rusqlite = { version = "=0.37.0", features = ["bundled"] }
+
+[target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "=2.5.4"
+tauri-plugin-window-state = "=2.5.0"
+
+[dev-dependencies]
+tempfile = "=3.20.0"
+
+# A smaller installer. Panics still unwind, so a bug in one command fails that
+# command instead of closing the app.
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

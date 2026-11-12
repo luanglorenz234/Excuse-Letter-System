@@ -1,0 +1,145 @@
+/*
+ * The locked Alpha Premier A4 letter, ported from the web app. This is the
+ * company's official letterhead, so it keeps its own print look (black text on
+ * the letterhead image) in both themes; the app's tokens don't reach it.
+ */
+.a4-sheet {
+  width: 794px; /* A4 at 96 DPI */
+  height: 1123px;
+  background-color: #ffffff;
+  background-image: url('../../assets/letterhead-bg.jpg');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #000000;
+  position: relative;
+  font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.a4-approval-stamp {
+  position: absolute;
+  top: 212px;
+  right: 94px;
+  border: 2px solid #15803d;
+  color: #15803d;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-align: right;
+  background: rgba(240, 253, 244, 0.94);
+  transform: rotate(-2deg);
+  z-index: 20;
+}
+.a4-approval-stamp__title { font-size: 13px; font-weight: 800; letter-spacing: 0.12em; }
+.a4-approval-stamp__ref { font-size: 10.5px; font-weight: 700; margin-top: 1px; color: #0c2340; }
+.a4-approval-stamp__date { font-size: 9.5px; color: #166534; }
+
+.a4-status-watermark {
+  position: absolute;
+  top: 216px;
+  right: 94px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1.5px dashed #94a3b8;
+  color: #64748b;
+  background: rgba(255, 255, 255, 0.9);
+  z-index: 20;
+}
+
+/* Inset to clear the letterhead's logo, corner graphics and footer. */
+.a4-content {
+  position: relative;
+  z-index: 2;
+  padding: 178px 94px 115px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+.a4-content > * { min-width: 0; max-width: 100%; }
+
+.a4-meta-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; gap: 20px; }
+.a4-address { font-size: 13px; line-height: 1.45; white-space: pre-line; overflow-wrap: anywhere; }
+.a4-date { font-size: 13.5px; font-weight: 500; white-space: nowrap; padding-right: 6px; flex-shrink: 0; }
+.a4-subject { font-size: 14px; font-weight: 800; margin-bottom: 22px; overflow-wrap: anywhere; }
+.a4-salutation { margin-bottom: 16px; }
+
+.a4-p {
+  margin: 0 0 16px;
+  text-align: justify;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.a4-var {
+  background: rgba(198, 154, 44, 0.16);
+  padding: 0 2px;
+  border-radius: 2px;
+  border-bottom: 1px dashed #b58517;
+}
+.a4-var--placeholder { color: #94a3b8; }
+
+.a4-signatures { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; align-items: start; column-gap: 40px; }
+.a4-sig-col { display: flex; flex-direction: column; }
+.a4-sig-greeting { line-height: 1.4; margin-bottom: 6px; }
+.a4-sig-greeting--hidden { visibility: hidden; }
+.a4-sig-space { height: 52px; display: flex; align-items: flex-end; gap: 10px; margin-bottom: 8px; }
+.a4-sig-space img { max-height: 48px; max-width: 180px; object-fit: contain; }
+.a4-sig-space--many img { max-width: 100px; }
+.a4-sig-placeholder { font-size: 11px; color: #94a3b8; font-style: italic; padding-bottom: 4px; }
+.a4-names { display: flex; flex-direction: column; gap: 2px; }
+.a4-name { font-weight: 700; line-height: 1.4; }
+.a4-title { font-size: 13px; margin-top: 3px; line-height: 1.4; }
+.a4-wet-note {
+  font-size: 11px;
+  font-style: italic;
+  color: #475569;
+  border: 1px dashed #94a3b8;
+  padding: 6px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* A letter shown smaller than A4, keeping its layout: the outer box takes the scaled size. */
+.letter-frame { position: relative; overflow: hidden; flex-shrink: 0; }
+.letter-frame > .a4-sheet { position: absolute; top: 0; left: 0; transform-origin: top left; }
+
+/* ---- printing: only the letter, on exactly one A4 page ------------------- */
+@media screen {
+  #print-root { display: none; }
+}
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+@media print {
+  #root { display: none !important; }
+  html, body {
+    width: 210mm;
+    height: 297mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: hidden;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #print-root { display: block; position: absolute; left: 0; top: 0; width: 210mm; height: 297mm; overflow: hidden; }
+  #print-root .a4-sheet { width: 210mm; height: 297mm; break-inside: avoid; }
+  #print-root .a4-approval-stamp,
+  #print-root .a4-status-watermark { display: none; }
+  #print-root .a4-var { background: transparent; border-bottom: none; padding: 0; }
+}

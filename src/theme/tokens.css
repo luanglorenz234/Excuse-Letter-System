@@ -1,0 +1,286 @@
+/*
+ * The design system, copied from Alpha Listing Hub (the checker) so the two
+ * apps read as one family. Copied rather than shared as a package, by
+ * decision — see docs/DECISIONS.md D12.
+ *
+ * The rule that makes the resemblance read: gold does exactly four jobs —
+ * the brand word, the one primary button on a screen, what is selected, and
+ * keyboard focus. Everything else is carried by the status colours.
+ *
+ * Two themes. Dark is the default, for OLED: a charcoal-black page (#121212)
+ * and neutral greys, with no warm tint anywhere but the gold. Light is the
+ * same black and gold on white: `<html data-theme="light">`, set by
+ * src/ui/state/theme.ts, swaps every colour token below and nothing else, so
+ * no component knows which theme it is in. The photo viewer stays dark in
+ * both (see the end of this file).
+ */
+
+/* ---- dark: the default, and the photo viewer in either theme ------------ */
+/* Also anything marked data-theme="dark" inside the light theme: the startup
+   screen is a brand moment, always dark. */
+
+:root,
+:root[data-theme="light"] .viewer,
+:root[data-theme="light"] [data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ---- surfaces: neutral greys on an OLED charcoal. No warm tint. ----
+     Each step up is lighter, so a card separates from the page by its fill,
+     not only by its edge. */
+  --bg: #121212;
+  --surface: #1a1a1a;
+  --surface-raised: #222222;
+  --input-bg: #0c0c0c;
+  --card-bg: linear-gradient(180deg, #1e1e1e 0%, #1a1a1a 100%);
+  --tip-bg: #2a2a2a;
+  --top-bar-bg: rgba(18, 18, 18, 0.94);
+  --viewer-bg: rgba(0, 0, 0, 0.94);
+  --inset: rgba(0, 0, 0, 0.3);
+  --inset-edge: rgba(255, 255, 255, 0.08);
+
+  /* ---- text ---- */
+  --text: #e0e0e0;
+  --text-label: #cccccc;
+  --text-muted: #b0b0b0;
+  --placeholder: #8c8c8c;
+  --zero-text: #5c5c5c;
+
+  /* ---- edges: neutral grey, never gold ---- */
+  --border-soft: #2e2e2e;
+  --border: #444444;
+  --button-edge: #4d4d4d;
+  --border-strong: #5c5c5c;
+  --pick-edge: #888888;
+  --row-hover: rgba(255, 255, 255, 0.03);
+  --outline-shape: rgba(255, 255, 255, 0.07);
+  --card-edge: linear-gradient(180deg, #444444 0%, #333333 25%, #2e2e2e 100%);
+
+  /* ---- gold: brand, the primary action, selection, focus ---- */
+  --gold: #e0b84a;
+  --gold-edge: rgba(224, 184, 74, 0.55);
+  --gold-soft: rgba(224, 184, 74, 0.12);
+  --on-gold: #121212;
+  --gold-gradient: linear-gradient(135deg, #f6dc8a 0%, #e0b84a 45%, #b98a26 100%);
+
+  /* ---- status: each tint is the family's own hue at a low alpha, so on a
+     neutral grey it reads as that hue, not as brown ---- */
+  --danger-bg: rgba(240, 100, 90, 0.12);
+  --danger-text: #ff9d95;
+  --danger-strong: #f0645a;
+  --danger-soft: rgba(240, 100, 90, 0.18);
+  --danger-line: rgba(240, 100, 90, 0.4);
+  --danger-edge: rgba(255, 157, 149, 0.55);
+  --on-danger: #1f0a08;
+
+  --info-bg: rgba(111, 168, 220, 0.12);
+  --info-text: #a9cdef;
+  --info-strong: #6fa8dc;
+  --info-soft: rgba(111, 168, 220, 0.18);
+  --info-line: rgba(111, 168, 220, 0.36);
+  --info-edge: rgba(169, 205, 239, 0.55);
+
+  --ok-bg: rgba(98, 196, 126, 0.12);
+  --ok-text: #93d9a3;
+  --ok-strong: #62c47e;
+  --ok-soft: rgba(98, 196, 126, 0.18);
+  --ok-line: rgba(98, 196, 126, 0.34);
+  --ok-edge: rgba(147, 217, 163, 0.5);
+
+  --neutral-bg: rgba(255, 255, 255, 0.06);
+  --neutral-text: #cccccc;
+  --neutral-strong: #888888;
+  --neutral-soft: rgba(255, 255, 255, 0.12);
+
+  --warn-bg: rgba(245, 170, 90, 0.12);
+  --warn-text: #f5b77a;
+  --warn-edge: rgba(245, 183, 122, 0.45);
+
+  /* ---- listing types: one hue per type, everywhere ---- */
+  --type-commercial: #3987e5;
+  --type-condo: #d95926;
+  --type-office: #199e70;
+  --type-warehouse: #c98500;
+  --type-unsorted: #888888;
+
+  /* Selected text: gold's third job. Solid, so the text on it holds AA. */
+  --selection-bg: #e0b84a;
+  --selection-text: #121212;
+
+  /* Behind a dialog: the page goes nearly out. */
+  --scrim: rgba(0, 0, 0, 0.75);
+
+  /* Declared with the colours, so the ring resolves to this theme's gold. */
+  --focus-ring: 2px solid var(--gold);
+}
+
+/* ---- light: the company's black and gold on white ----------------------
+   The same roles, inverted. Light goes down in steps instead of up: a white
+   card on an off-white page, held by a grey edge that is darker at the
+   bottom (still lit from above). Washes are black, not white. Gold keeps its
+   gradient on the primary button; everything that draws gold as text or as a
+   thin mark (the brand word, selection, the focus ring) uses a deep gold that
+   passes AA on white. Every ratio is in DESIGN.md §2. */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* ---- surfaces ---- */
+  --bg: #fafafa;
+  --surface: #f5f5f5;
+  --surface-raised: #f0f0f0;
+  --input-bg: #ffffff;
+  --card-bg: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
+  --tip-bg: #ffffff;
+  --top-bar-bg: rgba(250, 250, 250, 0.94);
+  --viewer-bg: rgba(0, 0, 0, 0.94);
+  --inset: rgba(0, 0, 0, 0.04);
+  --inset-edge: rgba(255, 255, 255, 0.2);
+
+  /* ---- text ---- */
+  --text: #121212;
+  --text-label: #2e2e2e;
+  --text-muted: #4a4a4a;
+  --placeholder: #6b6b6b;
+  --zero-text: #9e9e9e;
+
+  /* ---- edges ---- */
+  --border-soft: #ebebeb;
+  --border: #e0e0e0;
+  --button-edge: #c8c8c8;
+  --border-strong: #b5b5b5;
+  --pick-edge: #858585;
+  --row-hover: rgba(0, 0, 0, 0.03);
+  --outline-shape: rgba(0, 0, 0, 0.06);
+  --card-edge: linear-gradient(180deg, #e5e5e5 0%, #e5e5e5 60%, #d9d9d9 100%);
+
+  /* ---- gold ---- */
+  --gold: #806210;
+  --gold-edge: rgba(166, 126, 22, 0.6);
+  --gold-soft: rgba(224, 184, 74, 0.16);
+  --on-gold: #121212;
+  --gold-gradient: linear-gradient(135deg, #f6dc8a 0%, #e0b84a 45%, #b98a26 100%);
+
+  /* ---- status: darker hues for text on white, the same 12% tint idea ---- */
+  --danger-bg: rgba(196, 43, 28, 0.08);
+  --danger-text: #a8261b;
+  --danger-strong: #c42b1c;
+  --danger-soft: rgba(196, 43, 28, 0.14);
+  --danger-line: rgba(196, 43, 28, 0.4);
+  --danger-edge: rgba(168, 38, 27, 0.45);
+  --on-danger: #ffffff;
+
+  --info-bg: rgba(31, 95, 168, 0.08);
+  --info-text: #1c5596;
+  --info-strong: #2668b3;
+  --info-soft: rgba(31, 95, 168, 0.14);
+  --info-line: rgba(31, 95, 168, 0.36);
+  --info-edge: rgba(28, 85, 150, 0.45);
+
+  --ok-bg: rgba(30, 128, 62, 0.08);
+  --ok-text: #1a6331;
+  --ok-strong: #23803f;
+  --ok-soft: rgba(30, 128, 62, 0.14);
+  --ok-line: rgba(30, 128, 62, 0.34);
+  --ok-edge: rgba(26, 99, 49, 0.45);
+
+  --neutral-bg: rgba(0, 0, 0, 0.05);
+  --neutral-text: #333333;
+  --neutral-strong: #737373;
+  --neutral-soft: rgba(0, 0, 0, 0.09);
+
+  --warn-bg: rgba(217, 119, 6, 0.1);
+  --warn-text: #a34b05;
+  --warn-edge: rgba(180, 83, 9, 0.45);
+
+  /* ---- listing types: darkened just enough to hold 3:1 as a dot on white ---- */
+  --type-commercial: #2f78d4;
+  --type-condo: #c94e1e;
+  --type-office: #158a62;
+  --type-warehouse: #a87000;
+  --type-unsorted: #858585;
+
+  --selection-bg: rgba(224, 184, 74, 0.45);
+  --selection-text: #121212;
+
+  --scrim: rgba(18, 18, 18, 0.45);
+}
+
+:root {
+  /* ---- type ---- */
+  --body-font: "Segoe UI", system-ui, sans-serif;
+  --heading-font: "Montserrat", "Segoe UI Semibold", var(--body-font);
+  --weight-label: 500;
+  --weight-heading: 600;
+  --weight-display: 700;
+
+  --text-caption: 14px;  --lh-caption: 20px;
+  --text-meta: 15px;     --lh-meta: 22px;
+  --text-body: 16px;     --lh-body: 24px;
+  --text-name: 17px;     --lh-name: 23px;
+  --text-title: 20px;    --lh-title: 26px;
+  --text-heading: 24px;  --lh-heading: 30px;
+  --text-verdict: 28px;  --lh-verdict: 34px;
+
+  /* Nothing under 14px, and no tracked capitals: spaced caps read smaller
+     than they are. Sentence case everywhere. */
+  --letter-spacing: 0;
+
+  /* ---- spacing, a 2px base ---- */
+  --space-1: 2px;   --space-2: 4px;   --space-3: 6px;   --space-4: 8px;
+  --space-5: 10px;  --space-6: 12px;  --space-7: 14px;  --space-8: 16px;
+  --space-9: 18px;  --space-10: 20px; --space-12: 24px; --space-14: 28px;
+  --space-20: 40px; --space-24: 48px;
+
+  /* ---- radii. Pills are half their own height, which in CSS is 999px. ---- */
+  --radius-sm: 4px;
+  --radius-chip: 8px;
+  --radius-input: 12px;
+  --radius-row: 14px;
+  --radius-verdict: 16px;
+  --radius-card: 18px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+
+  /* ---- motion: one easing curve, no bounce, no spring ---- */
+  --dur-press: 80ms;
+  --dur-fast: 120ms;
+  --dur-exit: 150ms;
+  --dur-enter: 200ms;
+  --dur-move: 250ms;
+  --dur-scroll: 300ms;
+  --stagger: 40ms;
+  --rise: 8px;
+  --press-scale: 0.98;
+  --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+
+  /* ---- layout. Breakpoints are measured against container width after the
+     text-size zoom, not the viewport. ---- */
+  --bp-stack: 900px;
+  --bp-compact: 1100px;
+  --page-max: 1320px;
+  --pane-regular: 400px;
+  --pane-compact: 340px;
+  --gap-regular: 40px;
+  --gap-compact: 24px;
+  --page-pad-regular: 24px;
+  --page-pad-compact: 16px;
+  --page-pad-narrow: 12px;
+
+  --focus-offset: 3px;
+  --focus-radius: 14px;
+}
+
+/* Windows' "Animation effects" reaches the WebView as prefers-reduced-motion. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 0ms;
+    --dur-fast: 0ms;
+    --dur-exit: 0ms;
+    --dur-enter: 0ms;
+    --dur-move: 0ms;
+    --dur-scroll: 0ms;
+    --stagger: 0ms;
+    --rise: 0px;
+    --press-scale: 1;
+  }
+}

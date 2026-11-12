@@ -1,50 +1,73 @@
-# Alpha Premier — Absence Request System (Final v1.0)
+# APG Excuse Letters
 
-This project implements the **Final Plan v1.0** for the **Alpha Premier Group Leave of Absence Request System** (for Interns and Employees).
+Alpha Premier Group's leave-of-absence letters for interns and employees, as a **Windows desktop app**. Members file a letter (alone or as a group), sign it, and send it to HR; HR reviews it beside the rendered A4 letter and approves, returns or declines it. Approved letters get a reference number and HR's signature, and print or save as PDF.
 
-## Project Files
-- `index.html` — Single-page application shell with `html2canvas` + `jsPDF` for client-side A4 PDF export.
-- `styles.css` — Full layout styling, including the **Locked Alpha Premier A4 Letterhead** (`794px × 1123px` standard A4 aspect ratio + `@media print` rules).
-- `app.js` — Complete state management, pure-function locked letter renderer (`renderLockedLetterHTML`), duplicate slot guard (`absenceSlots/{uid}_{yyyy-mm-dd}_{am|pm}`), Firestore approval transaction simulation (`counters/{year}`), signature pad canvas, CSV export, and all 8 screens.
-- `firebase-config.js` — Firebase Auth & Cloud Firestore configuration adapter.
-- `firestore.rules` — Production Firestore Security Rules enforcing role-based and status-based field restrictions.
+It is built on the same stack and layout as **APG Post-It**, so the two apps can be joined later.
 
-## All 8 Screens Implemented
-1. **Login / Self-Registration (`renderLoginScreen`)** — Includes Decision #6 flow where newly registered interns start as `pending` until HR activates them and assigns their official Intern ID, Position, Department, and Required Hours.
-2. **Member Dashboard (`renderInternDashboard`)** — Displays hours tracker (Required/Target, Gross Rendered, Approved Absence Deductions, Pending Deductions, Net Remaining Hours), returned-for-revision alerts, recent requests, and locked profile + saved signature.
-3. **New / Revise Request (`renderNewRequestScreen`)** — Split-screen workspace: variable input form on the left (with Intern / Employee type selector, 7-day backdate rule, weekday-only counter for multi-day requests, 30–400 character counter, duplicate slot guard, and HTML5 signature pad / PNG upload) + live A4 Alpha Premier letterhead preview on the right.
-4. **My Requests (`renderMyRequestsScreen`)** — Filterable request history with status pills, letter modal viewer, **Withdraw** (for `submitted`), **Edit / Revise** (for `draft` and `returned`), and **Download PDF** (for `approved`).
-5. **HR Review Queue & Analytics (`renderHRQueueScreen`)** — Prioritizes pending (`submitted`) requests first, filters by status/category/department, displays absence analytics, and exports filtered records to CSV.
-6. **HR Review Screen (`renderHRReviewScreen`)** — Side-by-side rendered A4 letter preview beside request metadata, member hours & past absence history, immutable audit trail timeline, and **Approve / Return for Revision / Decline** transaction actions.
-7. **HR Attendance Calendar (`renderHRCalendarScreen`)** — Interactive monthly grid showing absent interns per day (`[FULL]`, `[AM]`, `[PM]`).
-8. **HR Settings (`renderHRSettingsScreen`)** — Manages `settings/letter` (Signatory Name/Title, Subject line, Address block, Apology/Closing paragraphs, HR signature, and `attachmentsEnabled` feature flag) and activates/edits Intern profiles (`users/{uid}`).
-
-## Run It Locally (SQLite Database Server)
-The local server provides an embedded **SQLite database** (`alpha_premier.db`) with zero external database installation required (uses Node.js 24's native `node:sqlite`). All actions (requests, approvals, edits) persist in the SQLite database and sync live across different browser tabs and devices on your local network.
-
-1. Download or clone this repository.
-2. Start the local SQLite development server:
-   ```bash
-   node server.js
-   ```
-   Then open <http://localhost:8080>.
-3. Sign in with one of the test logins below, or use the **demo bar** at the top to switch between personas in one click.
-4. **↺ Reset Seed Data** resets both the SQLite database (`alpha_premier.db`) and local session back to the official seed state.
-
-`firebase-config.js` keeps `useLiveFirebase: false` for local use. Set `showDemoBar: false` to hide the demo bar.
-
-### What to try
-| Who | What you can do |
+| | |
 | --- | --- |
-| Intern / employee | File a full-day, half-day or multi-day request; sign digitally (draw or upload) or by hand (upload a photo, or hand in the paper copy); save as draft; edit a draft, a returned letter, **or a request still waiting for HR**; withdraw a pending request; print / save the approved letter as PDF. |
-| Group (same reason) | In **New Request → Who is absent?**, choose **Group (same reason)**. Add people from the list (e.g. John, Mark and Kevs) or type in someone who has no account. Up to 6 people per letter. With a digital signature each person signs on their own pad; with a wet signature everyone signs the printed letter. The letter switches to "We … our" wording and shows every signature. The request also appears in each listed person's **My Requests** (view only). |
-| HR | Review queue with filters and CSV export (group requests list everyone), approve / return / decline, mark paper copies received, compare signatures, attendance calendar (group entries show "Juan +3"), edit the letter wording (including the group wording) and activate new members. |
+| Desktop shell | Tauri 2 (Rust), WebView2 |
+| Screens | React 18 + TypeScript (strict), Vite 5, React Router (hash routes) |
+| Data | SQLite in the app (rusqlite, bundled), saved by Rust |
+| Tests | Vitest (rules), `cargo test` (storage) |
+| Design | Post-It's design system: `src/theme/tokens.css`, Montserrat, gold accents, dark by default |
 
-The duplicate-date guard covers everyone on a group letter: if John already has a pending or approved absence that day, the group request is blocked and names him.
+![Sample letter](docs/sample-letter.jpg)
 
-## Temporary Test Logins
-Until Firebase Auth is connected, sign-in is checked in the browser. Two test accounts are defined in `temp-login.js`:
-- **HR / admin** — use **Login as Admin**
-- **Intern** — use **Answer Absence Form**
+## Run it
 
-Accounts created through the register form store a hashed password in that browser only. Remove `temp-login.js` (and its `<script>` tag in `index.html`) once Firebase Auth is in place. Never put real passwords in that file: anyone can read it.
+You need **Node.js 20+**, and for the desktop app **Rust** (stable, MSVC toolchain) with the Microsoft C++ build tools and WebView2 (already on Windows 11). See <https://tauri.app/start/prerequisites/>.
+
+```bash
+npm install
+```
+
+| Command | What it does |
+| --- | --- |
+| `npm run tauri dev` | Opens the desktop app with live reload. The first run compiles Rust and takes a few minutes. |
+| `npm run tauri build` | Builds the installer (`src-tauri/target/release/bundle/`). |
+| `npm run dev` | Runs the screens in a normal browser at <http://localhost:1421>, with the data in `localStorage` instead of SQLite. Handy for UI work without Rust. |
+| `npm test` | Rule tests (filing, groups, duplicate guard, editing, HR decisions). |
+| `cd src-tauri && cargo test` | Storage tests (SQLite save, load, reset). |
+| `npm run build` | Type-checks and builds the screens into `dist/`. |
+
+### Signing in
+
+The first run loads the sample data from `src/core/seed.json`. The temporary HR and member logins are in [`src/config.ts`](src/config.ts) (`TEMP_ACCOUNTS`). While `SHOW_TEST_BAR` is `true`, a bar at the top switches between people in one click and has **Reset sample data**. Set it to `false` before handing the app out.
+
+### Where the data lives
+
+`%LOCALAPPDATA%\com.alphapremier.apgexcuseletters\excuse-letters.db` (one SQLite file). Delete it, or use **Reset sample data**, to start over. CSV exports go to `Downloads\APG Excuse Letters`.
+
+## What it does
+
+| Who | What |
+| --- | --- |
+| Intern / employee | File a full-day, half-day or several-day request; sign digitally (draw or upload) or by hand (upload a photo, or hand the paper to HR); save a draft; edit a draft, a returned letter, or one still waiting for HR; withdraw a waiting one; print an approved one. |
+| Group (same reason) | **New request → Who is absent? → Group (same reason)**. Add up to 6 people from the list, or type in someone with no account. Each person signs (digital) or everyone signs the paper (wet). The letter switches to "We … our" wording, and the request shows in every listed person's **My requests** (view only). |
+| HR | Review queue (waiting first, filters, CSV export), review screen with the letter, signature check against earlier signatures, paper-copy tracking, approve / return / decline with remarks, history; calendar; settings for the letter wording, the approval signature and member profiles. |
+| Everyone | Calendar of approved and waiting absences. Members can open only their own letters from it. |
+
+Rules that hold everywhere: no one can be booked twice for the same half-day (also across group letters); dates can't be more than 7 days back; the reason is 30–400 characters; approval needs the paper copy first for hand-in letters; returned and declined letters free their dates.
+
+## How the code is laid out
+
+Same structure as APG Post-It:
+
+```
+src/
+  core/        Rules as plain functions: (data, input) → changes to save, or why not. No React, no Tauri.
+  platform/    The only way out to the OS: tauri.ts (SQLite through Rust), browser.ts (dev), memory.ts (tests).
+  theme/       Design tokens and base styles, copied from Post-It.
+  ui/          React: components/ (Post-It's), letter/ (the A4 letter and printing), screens/, state/.
+src-tauri/
+  src/db.rs    SQLite: load, commit a batch of changes in one transaction, reset.
+  src/files.rs Saves CSV exports inside Downloads\APG Excuse Letters only.
+  capabilities/ What the screens are allowed to call.
+```
+
+Every action is a function in `src/core` that returns a `Changes` batch; `AppState.run()` hands it to the platform, which Rust commits in one SQLite transaction (like a Firestore batch). The data shape is the same as the old web app and `seed.json`, so it can move to Firestore later; `firestore.rules` is kept for that.
+
+## What changed from the web version
+
+The browser app (`app.js`, `styles.css`, `server.js`, `db.js`, `firebase-config.js`) was replaced by this desktop app. They are still in git history (commit `a15ace8` and earlier). The local Node SQLite server is no longer needed: the app keeps its own SQLite file. Multi-user sync across machines will come with a shared backend later.
