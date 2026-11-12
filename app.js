@@ -532,6 +532,8 @@ function getInitialSeedState() {
 }
 
 let state = null;
+let isSyncingWithServer = false;
+let syncDebounceTimer = null;
 
 function loadState() {
   const seed = getInitialSeedState();
@@ -560,13 +562,105 @@ function saveState(nextState) {
   } catch (e) {
     console.warn("Could not save state to localStorage", e);
   }
+
+  // Push to SQLite server in background
+  queueServerSync();
+}
+
+function queueServerSync() {
+  clearTimeout(syncDebounceTimer);
+  syncDebounceTimer = setTimeout(() => {
+    pushStateToSQLite();
+  }, 350);
+}
+
+async function pushStateToSQLite() {
+  if (!state || isSyncingWithServer) return;
+  try {
+    const payload = {
+      requests: state.requests,
+      users: state.users,
+      absenceSlots: state.absenceSlots,
+      settings: state.settings,
+      counters: state.counters,
+      auditLogs: state.auditLogs
+    };
+    await fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    // Offline or standalone file mode
+  }
+}
+
+async function fetchStateFromSQLite() {
+  try {
+    const res = await fetch("/api/state", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && data.success && data.state) {
+      applySQLiteState(data.state);
+    }
+  } catch (err) {
+    // Offline or standalone file mode
+  }
+}
+
+function applySQLiteState(serverState) {
+  if (!serverState || !serverState.requests) return;
+
+  const currentUid = state?.currentUserUid;
+  const currentScreen = state?.currentScreen;
+  const selectedReqId = state?.selectedRequestIdForReview;
+  const editingId = state?.editingRequestId;
+  const calOffset = state?.calendarMonthOffset;
+  const sidebarCollapsed = state?.sidebarCollapsed;
+
+  isSyncingWithServer = true;
+  state = {
+    ...state,
+    ...serverState,
+    currentUserUid: currentUid || serverState.currentUserUid,
+    currentScreen: currentScreen || "home",
+    selectedRequestIdForReview: selectedReqId || serverState.selectedRequestIdForReview,
+    editingRequestId: editingId,
+    calendarMonthOffset: calOffset ?? 0,
+    sidebarCollapsed: sidebarCollapsed ?? false
+  };
+  isSyncingWithServer = false;
+
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {}
+
+  // Only re-render if user is not actively typing in an input/textarea
+  const activeEl = document.activeElement;
+  const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
+  if (!isTyping) {
+    renderApp();
+  }
 }
 
 state = loadState();
 saveState(state);
 
-function resetDemoState() {
+async function resetDemoState() {
   localStorage.removeItem(STORAGE_KEY);
+  try {
+    const res = await fetch("/api/reset", { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.state) {
+        applySQLiteState(data.state);
+        showToast("SQLite database and demo state reset to seed.");
+        renderApp();
+        return;
+      }
+    }
+  } catch (e) {}
+
   state = getInitialSeedState();
   saveState(state);
   showToast("Demo database reset to initial Final v1.0 seed state.");
@@ -4116,7 +4210,21 @@ function closeLetterModal() {
 if (document.readyState === "loading") {
   window.addEventListener("DOMContentLoaded", () => {
     renderApp();
+    fetchStateFromSQLite();
   });
 } else {
   renderApp();
+  fetchStateFromSQLite();
+}
+
+// Background SQLite multi-user sync (polls every 3.5s when tab is active)
+if (typeof window !== "undefined") {
+  window.addEventListener("focus", () => {
+    fetchStateFromSQLite();
+  });
+  setInterval(() => {
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      fetchStateFromSQLite();
+    }
+  }, 3500);
 }

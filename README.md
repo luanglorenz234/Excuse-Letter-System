@@ -19,17 +19,17 @@ This project implements the **Final Plan v1.0** for the **Alpha Premier Group Le
 7. **HR Attendance Calendar (`renderHRCalendarScreen`)** — Interactive monthly grid showing absent interns per day (`[FULL]`, `[AM]`, `[PM]`).
 8. **HR Settings (`renderHRSettingsScreen`)** — Manages `settings/letter` (Signatory Name/Title, Subject line, Address block, Apology/Closing paragraphs, HR signature, and `attachmentsEnabled` feature flag) and activates/edits Intern profiles (`users/{uid}`).
 
-## Run It Locally (no Firebase needed)
-The app runs entirely in your browser. All data is saved in that browser's `localStorage`, so nothing needs to be installed or connected.
+## Run It Locally (SQLite Database Server)
+The local server provides an embedded **SQLite database** (`alpha_premier.db`) with zero external database installation required (uses Node.js 24's native `node:sqlite`). All actions (requests, approvals, edits) persist in the SQLite database and sync live across different browser tabs and devices on your local network.
 
 1. Download or clone this repository.
-2. Start a small local web server in the project folder (recommended, so the print/PDF and images behave like a real site):
+2. Start the local SQLite development server:
    ```bash
-   python -m http.server 5173
+   node server.js
    ```
-   Then open <http://localhost:5173>. You can also just double-click `index.html`.
-3. Sign in with one of the test logins below, or use the **demo bar** at the top to switch between people in one click (Juan, Sofia, John, Mark, Kevs, Carlos, the pending intern Maria, and HR).
-4. **↺ Reset Seed Data** in the demo bar clears everything you entered and restores the sample data.
+   Then open <http://localhost:8080>.
+3. Sign in with one of the test logins below, or use the **demo bar** at the top to switch between personas in one click.
+4. **↺ Reset Seed Data** resets both the SQLite database (`alpha_premier.db`) and local session back to the official seed state.
 
 `firebase-config.js` keeps `useLiveFirebase: false` for local use. Set `showDemoBar: false` to hide the demo bar.
 
