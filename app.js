@@ -621,6 +621,16 @@ async function fetchStateFromSQLite() {
 function applySQLiteState(serverState) {
   if (!serverState || !serverState.requests) return;
 
+  // 1. Skip re-render if server data has not changed
+  const reqsChanged = JSON.stringify(serverState.requests) !== JSON.stringify(state.requests);
+  const usersChanged = JSON.stringify(serverState.users) !== JSON.stringify(state.users);
+  const slotsChanged = JSON.stringify(serverState.absenceSlots) !== JSON.stringify(state.absenceSlots);
+  const settingsChanged = JSON.stringify(serverState.settings) !== JSON.stringify(state.settings);
+
+  if (!reqsChanged && !usersChanged && !slotsChanged && !settingsChanged) {
+    return;
+  }
+
   const currentUid = state?.currentUserUid;
   const currentScreen = state?.currentScreen;
   const selectedReqId = state?.selectedRequestIdForReview;
@@ -645,12 +655,24 @@ function applySQLiteState(serverState) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (e) {}
 
-  // Only re-render if user is not actively typing in an input/textarea
-  const activeEl = document.activeElement;
-  const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.isContentEditable);
-  if (!isTyping) {
-    renderApp();
+  // 2. CRITICAL: Never re-render if user is composing or editing a request ("new-request")
+  if (state.currentScreen === "new-request") {
+    return;
   }
+
+  // 3. Never re-render if a modal is open
+  if (document.getElementById("modal-root")?.children?.length > 0) {
+    return;
+  }
+
+  // 4. Never re-render if user is currently focused on an input/textarea/select
+  const activeEl = document.activeElement;
+  const isTyping = activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT" || activeEl.isContentEditable);
+  if (isTyping) {
+    return;
+  }
+
+  renderApp();
 }
 
 state = loadState();
@@ -2038,7 +2060,7 @@ function renderNewRequestScreen(user) {
     shift: "morning",
     timeRange: "8:00 AM – 12:00 PM",
     reasonCategory: "Academic",
-    reasonDetails: "",
+    reasonDetails: window.filingFormDraftReason || "",
     internSignature: user.savedSignature || "",
     signatureMethod: "digital",
     status: "draft"
@@ -2672,6 +2694,9 @@ function initNewRequestInteractivity() {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener("input", () => {
+        if (id === "f-details") {
+          window.filingFormDraftReason = el.value;
+        }
         if (id === "f-shift") {
           const tr = document.getElementById("f-timerange");
           if (tr) {
@@ -3072,6 +3097,7 @@ function saveOrSubmitRequest(targetStatus) {
 
   const wasPending = existingReq && existingReq.status === "submitted";
   state.editingRequestId = null;
+  window.filingFormDraftReason = "";
   saveState();
   showToast(
     targetStatus === "submitted"
@@ -4278,14 +4304,18 @@ if (document.readyState === "loading") {
   fetchStateFromSQLite();
 }
 
-// Background SQLite multi-user sync (polls every 3.5s when tab is active)
+// Background SQLite multi-user sync (polls every 10s when tab is active and not composing a request)
 if (typeof window !== "undefined") {
   window.addEventListener("focus", () => {
-    fetchStateFromSQLite();
+    if (state?.currentScreen !== "new-request") {
+      fetchStateFromSQLite();
+    }
   });
   setInterval(() => {
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
-      fetchStateFromSQLite();
+      if (state?.currentScreen !== "new-request") {
+        fetchStateFromSQLite();
+      }
     }
-  }, 3500);
+  }, 10000);
 }
