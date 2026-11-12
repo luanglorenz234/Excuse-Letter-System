@@ -1523,7 +1523,6 @@ function renderApp() {
         ${mainViewHTML}
       </main>
     </div>
-    <div id="modal-root"></div>
   `;
 
   // Post-render hooks (signature pad canvas, live preview bindings)
