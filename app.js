@@ -567,6 +567,14 @@ function saveState(nextState) {
   queueServerSync();
 }
 
+function getApiBaseUrl() {
+  if (typeof window === "undefined" || !window.location) return "";
+  if (window.location.protocol === "file:" || (window.location.port && window.location.port !== "8080")) {
+    return "http://localhost:8080";
+  }
+  return "";
+}
+
 function queueServerSync() {
   clearTimeout(syncDebounceTimer);
   syncDebounceTimer = setTimeout(() => {
@@ -585,7 +593,8 @@ async function pushStateToSQLite() {
       counters: state.counters,
       auditLogs: state.auditLogs
     };
-    await fetch("/api/sync", {
+    const baseUrl = getApiBaseUrl();
+    await fetch(baseUrl + "/api/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
@@ -597,7 +606,8 @@ async function pushStateToSQLite() {
 
 async function fetchStateFromSQLite() {
   try {
-    const res = await fetch("/api/state", { cache: "no-store" });
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(baseUrl + "/api/state", { cache: "no-store" });
     if (!res.ok) return;
     const data = await res.json();
     if (data && data.success && data.state) {
@@ -649,7 +659,8 @@ saveState(state);
 async function resetDemoState() {
   localStorage.removeItem(STORAGE_KEY);
   try {
-    const res = await fetch("/api/reset", { method: "POST" });
+    const baseUrl = getApiBaseUrl();
+    const res = await fetch(baseUrl + "/api/reset", { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       if (data && data.state) {
@@ -1227,6 +1238,11 @@ function navigateTo(screen, opts = {}) {
   const currentUser = getCurrentUser();
   const isHR = currentUser && currentUser.role === "hr";
 
+  // Alias calendar -> hr-calendar
+  if (screen === "calendar") {
+    screen = "hr-calendar";
+  }
+
   // Security guard: Non-HR users cannot navigate to HR administrative screens
   if (!isHR && (screen === "hr-queue" || screen === "hr-review" || screen === "hr-settings")) {
     screen = "intern-dashboard";
@@ -1356,7 +1372,7 @@ function renderApp() {
           </div>
           ${returnedCountForIntern > 0 ? `<span class="nav-badge" title="${returnedCountForIntern} requests to revise">${returnedCountForIntern}</span>` : ""}
         </li>
-        <li class="nav-item ${state.currentScreen === "hr-calendar" ? "active" : ""}" onclick="navigateTo('hr-calendar')" title="Absence Calendar">
+        <li class="nav-item ${state.currentScreen === "hr-calendar" || state.currentScreen === "calendar" ? "active" : ""}" onclick="navigateTo('hr-calendar')" title="Absence Calendar">
           <div class="nav-item-content">
             <span class="nav-icon">📅</span>
             <span class="nav-label">Calendar</span>
@@ -1381,7 +1397,7 @@ function renderApp() {
             <span class="nav-label">Review Letter</span>
           </div>
         </li>
-        <li class="nav-item ${state.currentScreen === "hr-calendar" ? "active" : ""}" onclick="navigateTo('hr-calendar')" title="Attendance Calendar">
+        <li class="nav-item ${state.currentScreen === "hr-calendar" || state.currentScreen === "calendar" ? "active" : ""}" onclick="navigateTo('hr-calendar')" title="Attendance Calendar">
           <div class="nav-item-content">
             <span class="nav-icon">📅</span>
             <span class="nav-label">Calendar</span>
@@ -1399,7 +1415,7 @@ function renderApp() {
   }
 
   let mainViewHTML = "";
-  if (currentUser.role !== "hr" && currentUser.status !== "active") {
+  if (currentUser.role !== "hr" && currentUser.status !== "active" && state.currentScreen !== "hr-calendar" && state.currentScreen !== "calendar") {
     mainViewHTML = renderPendingInternScreen(currentUser);
   } else {
     // Non-HR users cannot access HR administrative screens
@@ -1424,6 +1440,7 @@ function renderApp() {
         mainViewHTML = renderHRReviewScreen();
         break;
       case "hr-calendar":
+      case "calendar":
         mainViewHTML = renderHRCalendarScreen();
         break;
       case "hr-settings":
@@ -1773,12 +1790,12 @@ async function handleSelfRegisterSubmit(e) {
     uid,
     name,
     email,
-    internId: "",
-    position: "",
-    department: "",
+    internId: memberType === "employee" ? `APG-EMP-2026-0${Math.floor(Math.random() * 80 + 10)}` : `APG-INT-2026-0${Math.floor(Math.random() * 80 + 10)}`,
+    position: memberType === "employee" ? "Operations Associate" : "IT Associate Intern",
+    department: memberType === "employee" ? "Operations" : "Information Technology",
     role: memberType,
     memberType,
-    status: "pending",
+    status: "active",
     requiredHours: memberType === "intern" ? 480 : 0,
     renderedHours: 0,
     savedSignature: "",
@@ -1788,7 +1805,7 @@ async function handleSelfRegisterSubmit(e) {
   state.currentUserUid = uid;
   state.currentScreen = "intern-dashboard";
   saveState();
-  showToast("Account created. HR must activate it before you can file a request.");
+  showToast(`Welcome, ${name}! Your account is active.`);
   renderApp();
 }
 
