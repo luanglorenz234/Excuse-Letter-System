@@ -96,7 +96,7 @@ Firestore holds `requests/{id}` (a letter, its history and HR's comments), `slot
 5. Deploy: `npm run deploy` in `firebase/`.
 6. The first HR person signs in, gives their name, and names the HR officer in **Settings**.
 
-Optional: a Firestore TTL policy on the `throttle` collection's `expireAt` field deletes old counts.
+Optional: a Firestore TTL policy on the `throttle` collection's `expireAt` field deletes old counts. And `npx firebase functions:artifacts:setpolicy --project apg-letters --location asia-southeast1` deletes old build images of the functions, which otherwise pile up and cost a little each month (the deploy warns about it until it is set).
 
 ## How the code is laid out
 
