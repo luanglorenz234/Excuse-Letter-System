@@ -3,8 +3,8 @@
  */
 
 import { TEMP_ACCOUNTS, type TempAccount } from '@/config';
-import { DEFAULT_GROUP_APOLOGY, DEFAULT_GROUP_THANKS } from './db';
-import type { Db, LetterSettings, MemberType, Outcome, Role, User, UserStatus } from './types';
+import { DEFAULT_FORMATS } from './db';
+import { LETTER_FORMAT_VERSION, type Db, type FormatWording, type LetterSettings, type MemberType, type Outcome, type Role, type User, type UserStatus } from './types';
 
 export type SignInMode = 'member' | 'admin';
 
@@ -101,24 +101,46 @@ export function updateMember(db: Db, hr: User, uid: string, edit: MemberEdit): O
   return { ok: true, value: undefined, message: `Updated ${u.name} (${edit.status}).`, changes: { users: [updated] } };
 }
 
-/** Saves HR's letter wording; each save is a new template version (1.0 → 1.1). */
-export function saveLetterSettings(db: Db, hr: User, next: Omit<LetterSettings, 'templateVersion' | 'companyName'>): Outcome<{ version: string }> {
+export type LetterSettingsInput = Omit<LetterSettings, 'templateVersion' | 'formatVersion'>;
+
+function cleanFormat(f: FormatWording, d: FormatWording): FormatWording {
+  return {
+    salutation: f.salutation.trim(),
+    apologyParagraph: f.apologyParagraph.trim(),
+    apologyParagraphGroup: f.apologyParagraphGroup.trim() || d.apologyParagraphGroup,
+    thankYouParagraph: f.thankYouParagraph.trim(),
+    thankYouParagraphGroup: f.thankYouParagraphGroup.trim() || d.thankYouParagraphGroup,
+    closing: f.closing.trim(),
+    notedBy: f.notedBy.map((n) => ({ name: n.name.trim(), title: n.title.trim() })).filter((n) => n.name),
+  };
+}
+
+/** Saves HR's letter wording; each save is a new template version (2.0 → 2.1). */
+export function saveLetterSettings(db: Db, hr: User, next: LetterSettingsInput): Outcome<{ version: string }> {
   if (hr.role !== 'hr') return { ok: false, error: 'Only HR can change the letter.' };
-  const required: (keyof typeof next)[] = ['signatoryName', 'signatoryTitle', 'subject', 'salutation', 'addressBlock', 'apologyParagraph', 'thankYouParagraph'];
-  if (required.some((k) => !String(next[k]).trim())) return { ok: false, error: 'Fill in every field of the letter.' };
+  const general = [next.signatoryName, next.signatoryTitle, next.companyName, next.subject];
+  if (general.some((v) => !v.trim())) return { ok: false, error: 'Fill in the HR officer, title, company and subject.' };
+  const formats = {
+    intern: cleanFormat(next.formats.intern, DEFAULT_FORMATS.intern),
+    employee: cleanFormat(next.formats.employee, DEFAULT_FORMATS.employee),
+  };
+  for (const [label, f] of [['intern', formats.intern], ['employee', formats.employee]] as const) {
+    if (![f.salutation, f.apologyParagraph, f.thankYouParagraph, f.closing].every(Boolean)) {
+      return { ok: false, error: `Fill in every part of the ${label} letter.` };
+    }
+    if (f.notedBy.length === 0) return { ok: false, error: `List at least one person under "Noted by" on the ${label} letter.` };
+  }
   const [major, minor] = db.settings.letter.templateVersion.split('.');
-  const version = `${major ?? '1'}.${Number(minor ?? 0) + 1}`;
+  const version = `${major ?? '2'}.${Number(minor ?? 0) + 1}`;
   const letter: LetterSettings = {
     ...db.settings.letter,
     ...next,
+    formatVersion: LETTER_FORMAT_VERSION,
     signatoryName: next.signatoryName.trim(),
     signatoryTitle: next.signatoryTitle.trim(),
+    companyName: next.companyName.trim(),
     subject: next.subject.trim(),
-    salutation: next.salutation.trim(),
-    apologyParagraph: next.apologyParagraph.trim(),
-    thankYouParagraph: next.thankYouParagraph.trim(),
-    apologyParagraphGroup: next.apologyParagraphGroup.trim() || DEFAULT_GROUP_APOLOGY,
-    thankYouParagraphGroup: next.thankYouParagraphGroup.trim() || DEFAULT_GROUP_THANKS,
+    formats,
     templateVersion: version,
   };
   return { ok: true, value: { version }, message: `Letter settings saved (template v${version}).`, changes: { settings: { letter } } };

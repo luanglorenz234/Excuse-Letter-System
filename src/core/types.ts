@@ -104,17 +104,37 @@ export interface AbsenceRequest {
   readonly templateVersion: string;
 }
 
+/** Someone listed under "Noted by:". */
+export interface NotedBy {
+  readonly name: string;
+  readonly title: string;
+}
+
+/** The wording of one letter format. Interns and employees each have their own. */
+export interface FormatWording {
+  /** "Good day," for interns, "Dear Ma'am Jean:" for employees. */
+  readonly salutation: string;
+  readonly apologyParagraph: string;
+  readonly apologyParagraphGroup: string;
+  readonly thankYouParagraph: string;
+  readonly thankYouParagraphGroup: string;
+  /** "Respectfully," or "Very respectfully yours," */
+  readonly closing: string;
+  /** In order. The one named like the HR signatory gets the approval signature. */
+  readonly notedBy: readonly NotedBy[];
+}
+
+/** The letter format the app draws (2: the 2026 "Notice of Absence" letterhead). */
+export const LETTER_FORMAT_VERSION = 2;
+
 export interface LetterSettings {
+  readonly formatVersion: number;
+  /** The HR officer the letter is addressed to, who signs it on approval. */
   readonly signatoryName: string;
   readonly signatoryTitle: string;
   readonly companyName: string;
   readonly subject: string;
-  readonly salutation: string;
-  readonly addressBlock: string;
-  readonly apologyParagraph: string;
-  readonly thankYouParagraph: string;
-  readonly apologyParagraphGroup: string;
-  readonly thankYouParagraphGroup: string;
+  readonly formats: Readonly<Record<MemberType, FormatWording>>;
   readonly hrSignature: string;
   readonly templateVersion: string;
   readonly attachmentsEnabled: boolean;

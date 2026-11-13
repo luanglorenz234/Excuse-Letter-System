@@ -3,17 +3,52 @@ import type {
   Changes,
   Counter,
   Db,
+  FormatWording,
   GroupMember,
   LetterSettings,
+  MemberType,
   Settings,
   Slot,
   User,
 } from './types';
+import { LETTER_FORMAT_VERSION } from './types';
 
-export const DEFAULT_GROUP_APOLOGY =
-  'We sincerely apologize for any inconvenience our absence may cause and assure you that we will make every effort to catch up on any missed responsibilities upon our return.';
-export const DEFAULT_GROUP_THANKS =
-  'Thank you for your understanding and consideration. We appreciate your support regarding this matter.';
+/** The two formats as HR's 2026 "Notice of Absence" letters word them. */
+export const DEFAULT_FORMATS: Readonly<Record<MemberType, FormatWording>> = {
+  intern: {
+    salutation: 'Good day,',
+    apologyParagraph:
+      'I kindly ask for your understanding and I apologize for any inconvenience my absence may cause. I will make sure to complete or properly coordinate my pending tasks before leaving.',
+    apologyParagraphGroup:
+      'We kindly ask for your understanding and we apologize for any inconvenience our absence may cause. We will make sure to complete or properly coordinate our pending tasks before leaving.',
+    thankYouParagraph: 'Thank you for your kind consideration.',
+    thankYouParagraphGroup: 'Thank you for your kind consideration.',
+    closing: 'Respectfully,',
+    notedBy: [{ name: 'Ms. Jean Ashley S. Chico', title: 'HR Officer' }],
+  },
+  employee: {
+    salutation: 'Dear Ma’am Jean:',
+    apologyParagraph:
+      'I kindly ask for your understanding regarding my unavailability on the said date. I apologize for any inconvenience my absence may cause. I will make sure to complete or properly coordinate my pending tasks before leaving.',
+    apologyParagraphGroup:
+      'We kindly ask for your understanding regarding our unavailability on the said date. We apologize for any inconvenience our absence may cause. We will make sure to complete or properly coordinate our pending tasks before leaving.',
+    thankYouParagraph: 'Thank you for your kind understanding and consideration.',
+    thankYouParagraphGroup: 'Thank you for your kind understanding and consideration.',
+    closing: 'Very respectfully yours,',
+    notedBy: [
+      { name: 'Mr. Mark Anthony Santos', title: 'CEO' },
+      { name: 'Ms. Jean Ashley S. Chico', title: 'HR Officer' },
+      { name: 'Ms. Ma. Beatriz B. Conos', title: 'HR / Marketing Officer' },
+    ],
+  },
+};
+
+export const DEFAULT_LETTER_TEXT = {
+  signatoryName: 'Ms. Jean Ashley S. Chico',
+  signatoryTitle: 'HR Officer',
+  companyName: 'Alpha Premier Group of Companies',
+  subject: 'Notice of Absence',
+} as const;
 
 /** A new Db with the changes written: what SQLite will hold once the same changes are committed. */
 export function applyChanges(db: Db, changes: Changes): Db {
@@ -110,21 +145,43 @@ export function normalizeUser(raw: Loose): User {
   };
 }
 
+function normalizeFormat(raw: unknown, d: FormatWording): FormatWording {
+  const f = (raw ?? {}) as Loose;
+  const notedBy = Array.isArray(f.notedBy)
+    ? (f.notedBy as Loose[]).map((n) => ({ name: str(n?.name).trim(), title: str(n?.title).trim() })).filter((n) => n.name)
+    : [];
+  return {
+    salutation: str(f.salutation) || d.salutation,
+    apologyParagraph: str(f.apologyParagraph) || d.apologyParagraph,
+    apologyParagraphGroup: str(f.apologyParagraphGroup) || d.apologyParagraphGroup,
+    thankYouParagraph: str(f.thankYouParagraph) || d.thankYouParagraph,
+    thankYouParagraphGroup: str(f.thankYouParagraphGroup) || d.thankYouParagraphGroup,
+    closing: str(f.closing) || d.closing,
+    notedBy: notedBy.length > 0 ? notedBy : d.notedBy,
+  };
+}
+
+/**
+ * Settings saved before the 2026 letter format (no formatVersion) had one
+ * wording for everyone; they move to the new formats' wording, keeping HR's
+ * approval signature and the attachments switch.
+ */
 export function normalizeSettings(raw: unknown): Settings {
   const letter = ((raw as Loose | null)?.letter ?? {}) as Loose;
+  const current = letter.formatVersion === LETTER_FORMAT_VERSION;
+  const formats = (current ? letter.formats : null) as Loose | null;
   const l: LetterSettings = {
-    signatoryName: str(letter.signatoryName, 'Ms. Jean Ashley Chico'),
-    signatoryTitle: str(letter.signatoryTitle, 'HR Officer'),
-    companyName: str(letter.companyName, 'Alpha Premier Group'),
-    subject: str(letter.subject, 'Request for Absent'),
-    salutation: str(letter.salutation, "Good day, Ma'am!"),
-    addressBlock: str(letter.addressBlock),
-    apologyParagraph: str(letter.apologyParagraph),
-    thankYouParagraph: str(letter.thankYouParagraph),
-    apologyParagraphGroup: str(letter.apologyParagraphGroup) || DEFAULT_GROUP_APOLOGY,
-    thankYouParagraphGroup: str(letter.thankYouParagraphGroup) || DEFAULT_GROUP_THANKS,
+    formatVersion: LETTER_FORMAT_VERSION,
+    signatoryName: (current && str(letter.signatoryName)) || DEFAULT_LETTER_TEXT.signatoryName,
+    signatoryTitle: (current && str(letter.signatoryTitle)) || DEFAULT_LETTER_TEXT.signatoryTitle,
+    companyName: (current && str(letter.companyName)) || DEFAULT_LETTER_TEXT.companyName,
+    subject: (current && str(letter.subject)) || DEFAULT_LETTER_TEXT.subject,
+    formats: {
+      intern: normalizeFormat(formats?.intern, DEFAULT_FORMATS.intern),
+      employee: normalizeFormat(formats?.employee, DEFAULT_FORMATS.employee),
+    },
     hrSignature: str(letter.hrSignature),
-    templateVersion: str(letter.templateVersion, '1.0'),
+    templateVersion: current ? str(letter.templateVersion, '2.0') : '2.0',
     attachmentsEnabled: Boolean(letter.attachmentsEnabled),
   };
   return { letter: l };

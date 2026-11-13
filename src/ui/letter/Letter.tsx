@@ -1,13 +1,14 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { countWeekdays, currentYear, formatLongDate, formatShortDate, formatStandardDate, todayYmd } from '@/core/dates';
-import { DEFAULT_TIME_RANGE, isGroupRequest, requestMembers } from '@/core/requests';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { formatShortDate } from '@/core/dates';
+import { formatLetterDate, letterDateYmd, openingSegments, wordingFor, type Segment } from '@/core/letter';
+import { isGroupRequest, requestMembers, type LetterMember } from '@/core/requests';
 import type { AbsenceRequest, LetterSettings } from '@/core/types';
 import './letter.css';
 
 export interface LetterOptions {
   /** Gold highlights on what the person typed. Off for print and HR's view. */
   readonly highlight?: boolean | undefined;
-  /** The printed letter: no APPROVED stamp or status label. */
+  /** The printed letter: no APPROVED stamp, status label or placeholders. */
   readonly clean?: boolean | undefined;
   /** A copy to sign by hand: every signature space left empty. */
   readonly blankSignature?: boolean | undefined;
@@ -23,158 +24,142 @@ export function safeImageSrc(src: string | null | undefined): string {
   return typeof src === 'string' && /^data:image\/(png|jpe?g|gif|webp|svg\+xml)[;,]/i.test(src) ? src : '';
 }
 
-/**
- * "IT Associate Intern" → "IT <em>Associate Intern</em>", the way the official
- * letters set the position.
- */
-function Position({ value }: { value: string }) {
-  const m = /^(.*?)\s*(Associate\s+Intern|\b\w+\s+Intern)$/i.exec(value);
-  if (m && m[1]) {
-    return (
-      <>
-        {m[1]} <em>{m[2]}</em>
-      </>
-    );
-  }
-  return <em>{value}</em>;
-}
-
-function Opening({ req, v }: { req: AbsenceRequest; v: (text: string) => ReactNode }) {
-  const group = isGroupRequest(req);
-  const types = new Set(requestMembers(req).map((m) => m.memberType));
-  const duty = types.size > 1 ? 'duties' : req.memberType === 'employee' ? 'work duties' : 'internship duties';
-  const lead = `${group ? 'We' : 'I'} respectfully request permission to be absent from ${group ? 'our' : 'my'} ${duty}`;
-
-  if (req.type === 'half') {
-    const shift = req.shift ?? 'morning';
-    return (
-      <>
-        {lead} during the {v(shift)} shift ({v(req.timeRange || DEFAULT_TIME_RANGE[shift])}) of {v(formatLongDate(req.date))}.
-      </>
-    );
-  }
-  if (req.type === 'multi') {
-    const n = req.startDate && req.endDate ? countWeekdays(req.startDate, req.endDate) : req.days;
-    return (
-      <>
-        {lead} from {v(formatLongDate(req.startDate))} to {v(formatLongDate(req.endDate))} ({v(`${n} ${n === 1 ? 'day' : 'days'}`)}).
-      </>
-    );
-  }
+function Segments({ parts, highlight }: { parts: readonly Segment[]; highlight: boolean }) {
   return (
     <>
-      {lead} on {v(formatLongDate(req.date))}.
+      {parts.map((p, i) =>
+        p.placeholder ? (
+          <span key={i} className="a4-var a4-var--placeholder">
+            {p.text}
+          </span>
+        ) : p.typed && highlight ? (
+          <span key={i} className="a4-var">
+            {p.text}
+          </span>
+        ) : (
+          p.text
+        ),
+      )}
     </>
   );
 }
 
-function MemberSignatures({ req, blank }: { req: AbsenceRequest; blank: boolean }) {
-  if (blank) return <div className="a4-sig-space" />;
-  if (req.signatureMethod === 'wet-upload') {
+/** The space above a name: a drawn signature, a note about a hand-signed copy, or nothing. */
+function MemberSignature({ req, member, first, blank, clean }: { req: AbsenceRequest; member: LetterMember; first: boolean; blank: boolean; clean: boolean }) {
+  if (blank) return <div className="a4-sig" />;
+  if (req.signatureMethod !== 'digital') {
+    if (!first) return <div className="a4-sig" />;
+    const note =
+      req.signatureMethod === 'wet-upload'
+        ? 'Signed by hand · photo on file with HR'
+        : `Signed by hand · paper copy ${req.paperCopy?.status === 'received' ? 'received by HR' : 'to be handed in to HR'}`;
     return (
-      <div className="a4-sig-space">
-        <span className="a4-wet-note">Signed by hand · photo on file with HR</span>
+      <div className="a4-sig">
+        <span className="a4-sig__note">{note}</span>
       </div>
     );
   }
-  if (req.signatureMethod === 'wet-paper') {
-    const received = req.paperCopy?.status === 'received';
-    return (
-      <div className="a4-sig-space">
-        <span className="a4-wet-note">Signed by hand · paper copy {received ? 'received by HR' : 'to be handed in to HR'}</span>
-      </div>
-    );
-  }
-  const sigs = requestMembers(req)
-    .map((m) => safeImageSrc(m.signature))
-    .filter(Boolean);
-  if (sigs.length === 0) {
-    return (
-      <div className="a4-sig-space">
-        <span className="a4-sig-placeholder">[Signature required]</span>
-      </div>
-    );
-  }
+  const src = safeImageSrc(member.signature);
   return (
-    <div className={`a4-sig-space${sigs.length > 1 ? ' a4-sig-space--many' : ''}`}>
-      {sigs.map((src, i) => (
-        <img key={i} src={src} alt="Member signature" />
-      ))}
+    <div className="a4-sig">
+      {src ? <img src={src} alt={`Signature of ${member.name}`} /> : clean ? null : <span className="a4-sig__placeholder">[Signature required]</span>}
     </div>
   );
 }
 
-/** The official letter on the letterhead, exactly one A4 page, rebuilt from the request every time. */
+/**
+ * The official letter on the 2026 letterhead, exactly one A4 page, rebuilt
+ * from the request every time. The member type picks the format: interns
+ * close "Respectfully," and are noted by HR; employees close "Very
+ * respectfully yours," with their position, noted by the CEO and HR.
+ */
 export function Letter({ request: req, settings, highlight = true, clean = false, blankSignature = false }: LetterProps) {
-  const v = (text: string): ReactNode => (highlight ? <span className="a4-var">{text}</span> : text);
-  const filed = formatStandardDate((req.submittedAt ?? req.createdAt ?? todayYmd()).slice(0, 10));
-  const approved = req.status === 'approved';
-  const hrSig = approved ? safeImageSrc(req.review?.hrSignature) : '';
+  const wording = wordingFor(req, settings);
+  const employee = req.memberType === 'employee';
   const group = isGroupRequest(req);
   const members = requestMembers(req);
+  const letterYmd = letterDateYmd(req);
+  const approved = req.status === 'approved';
+  const hrSig = approved ? safeImageSrc(req.review?.hrSignature) : '';
+  const content = useRef<HTMLDivElement>(null);
+
+  // A long reason or a big group can run past the footer: shrink the type a step at a time until it fits.
+  useLayoutEffect(() => {
+    const el = content.current;
+    if (!el) return;
+    let fit = 1;
+    el.style.setProperty('--fit', '1');
+    let height = el.scrollHeight;
+    while (height > el.clientHeight + 1 && fit > 0.8) {
+      fit = Math.round((fit - 0.025) * 1000) / 1000;
+      el.style.setProperty('--fit', String(fit));
+      const next = el.scrollHeight;
+      // A page that isn't being drawn (a hidden window) doesn't re-measure: stop rather than shrink for nothing.
+      if (next >= height) break;
+      height = next;
+    }
+  });
 
   return (
     <div className="a4-sheet">
       {!clean && approved ? (
         <div className="a4-approval-stamp">
           <div className="a4-approval-stamp__title">✓ APPROVED</div>
-          <div className="a4-approval-stamp__ref">REF: {req.refNo ?? `APG-EL-${currentYear()}-XXXX`}</div>
-          <div className="a4-approval-stamp__date">Date: {req.review?.at ? formatShortDate(req.review.at) : filed}</div>
+          <div className="a4-approval-stamp__ref">REF: {req.refNo ?? '—'}</div>
+          <div className="a4-approval-stamp__date">Date: {req.review?.at ? formatShortDate(req.review.at) : formatLetterDate(letterYmd)}</div>
         </div>
       ) : null}
       {!clean && !approved && req.status !== 'draft' ? <div className="a4-status-watermark">Status: {req.status}</div> : null}
 
-      <div className="a4-content">
-        <div className="a4-meta-row">
-          <div className="a4-address">{settings.addressBlock}</div>
-          <div className="a4-date">Date: {filed}</div>
-        </div>
-        <div className="a4-subject">SUBJECT: {settings.subject}</div>
-        <div className="a4-salutation">{settings.salutation || "Good day, Ma'am!"}</div>
+      <div className={`a4-content a4-content--${employee ? 'employee' : 'intern'}`} ref={content}>
+        <p className="a4-block">{formatLetterDate(letterYmd)}</p>
 
-        <p className="a4-p">
-          <Opening req={req} v={v} />
+        <p className="a4-block a4-bold">
+          {settings.signatoryName}
+          <br />
+          {settings.companyName}
+          <br />
+          {settings.signatoryTitle}
         </p>
-        <p className="a4-p">
-          {req.reasonDetails ? (
-            v(req.reasonDetails)
-          ) : (
-            <span className="a4-var a4-var--placeholder">[The reason for the absence appears here, 30 to 400 characters.]</span>
-          )}
-        </p>
-        <p className="a4-p">{group ? settings.apologyParagraphGroup : settings.apologyParagraph}</p>
-        <p className="a4-p">{group ? settings.thankYouParagraphGroup : settings.thankYouParagraph}</p>
 
-        <div className="a4-signatures">
-          <div className="a4-sig-col">
-            <div className="a4-sig-greeting">Sincerely,</div>
-            <MemberSignatures req={req} blank={blankSignature} />
-            <div className="a4-names">
-              {members.map((m, i) => (
-                <div key={i} className="a4-name">
-                  {m.name || '[Name]'}
-                </div>
-              ))}
+        <p className="a4-block a4-bold a4-subject">Subject: {settings.subject}</p>
+
+        <p className="a4-block">{wording.salutation}</p>
+
+        <p className="a4-block a4-justify">
+          <Segments parts={openingSegments(req, letterYmd)} highlight={highlight} />
+        </p>
+        <p className="a4-block a4-justify">{group ? wording.apologyParagraphGroup : wording.apologyParagraph}</p>
+        <p className="a4-block a4-thanks">{group ? wording.thankYouParagraphGroup : wording.thankYouParagraph}</p>
+
+        <p className="a4-line">{wording.closing}</p>
+        <div className={`a4-signers${members.length > 1 ? ' a4-signers--group' : ''}`}>
+          {members.map((m, i) => (
+            <div key={i} className="a4-signer">
+              <MemberSignature req={req} member={m} first={i === 0} blank={blankSignature} clean={clean} />
+              <div className="a4-line">{m.name || '[Name]'}</div>
+              {employee && m.position ? <div className="a4-line">{m.position}</div> : null}
             </div>
-            <div className="a4-title">
-              <Position value={members[0]?.position || req.snapshot.position} />
-            </div>
-          </div>
-          <div className="a4-sig-col">
-            <div className="a4-sig-greeting a4-sig-greeting--hidden">Sincerely,</div>
-            <div className="a4-sig-space">
-              {hrSig ? (
-                <img src={hrSig} alt="HR officer signature" />
-              ) : approved || blankSignature ? null : (
-                <span className="a4-sig-placeholder">[Signed by HR on approval]</span>
-              )}
-            </div>
-            <div className="a4-name">{settings.signatoryName}</div>
-            <div className="a4-title">
-              <em>{settings.signatoryTitle}</em>
-            </div>
-          </div>
+          ))}
         </div>
+
+        <p className="a4-line a4-noted">Noted by:</p>
+        {wording.notedBy.map((n, i) => {
+          const signs = n.name === settings.signatoryName;
+          return (
+            <div key={i} className="a4-signer">
+              <div className="a4-sig">
+                {signs && hrSig && !blankSignature ? (
+                  <img src={hrSig} alt={`Signature of ${n.name}`} />
+                ) : signs && !approved && !clean && !blankSignature ? (
+                  <span className="a4-sig__placeholder">[Signed by HR on approval]</span>
+                ) : null}
+              </div>
+              <div className="a4-line">{n.name}</div>
+              {n.title ? <div className="a4-line">{n.title}</div> : null}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -204,3 +189,4 @@ export function ScaledLetter(props: LetterProps & { readonly maxWidth?: number }
     </div>
   );
 }
+

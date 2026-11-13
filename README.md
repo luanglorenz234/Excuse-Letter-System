@@ -12,7 +12,20 @@ It is built on the same stack and layout as **APG Post-It**, so the two apps can
 | Tests | Vitest (rules), `cargo test` (storage) |
 | Design | Post-It's design system: `src/theme/tokens.css`, Montserrat, gold accents, dark by default |
 
-![Sample letter](docs/sample-letter.jpg)
+![Sample employee letter](docs/sample-letter.png)
+
+### The letter
+
+The 2026 "Notice of Absence" format on the new letterhead, in two versions picked by **Filing as** on the request:
+
+| | Intern | Employee |
+| --- | --- | --- |
+| Greeting | Good day, | Dear Ma'am Jean: |
+| First paragraph | "I am respectfully requesting permission to take a leave of absence on [date] as [reason]" | "I am writing to respectfully request permission to be absent from work [tomorrow,] [date], as [reason]" |
+| Closing | Respectfully, (name only) | Very respectfully yours, (name and position) |
+| Noted by | HR Officer | CEO, HR Officer, HR / Marketing Officer |
+
+The member's reason finishes the first sentence ("…on Tuesday, October 27, 2026 as I have a meeting…"). HR can change every line of both versions, and who is listed under "Noted by", in **Settings → Letter**; the approval signature goes above the HR officer's name. A very long letter shrinks its type slightly so it always fits one page.
 
 ## Run it
 

@@ -310,7 +310,7 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
               <div className="field">
                 <div className="field__label-row">
                   <label className="field__label" htmlFor="f-details">
-                    Reason (second paragraph)
+                    Reason
                   </label>
                   <span className={`field__count ${reasonLen < REASON_MIN ? 'field__count--bad' : 'field__count--good'}`}>
                     {reasonLen} / {REASON_MAX} (min {REASON_MIN})
@@ -323,8 +323,9 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
                   maxLength={REASON_MAX}
                   value={input.reasonDetails}
                   onChange={(e) => set('reasonDetails', e.target.value)}
-                  placeholder="State the reason for the absence, 30 to 400 characters, so the letter stays on one page."
+                  placeholder={input.groupMode ? 'e.g. We have a meeting with our department chairperson for our capstone project on the said date.' : 'e.g. I have a meeting with our department chairperson for our capstone project on the said date.'}
                 />
+                <span className="field__hint">It finishes the first sentence: "…permission to be absent on [date] as …". Check how it reads in the preview.</span>
               </div>
             </div>
           </Card>
