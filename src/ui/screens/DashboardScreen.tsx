@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { canEdit, includesUser } from '@/core/requests';
+import { canEdit, includesUser, lastSnapshot } from '@/core/requests';
 import type { AbsenceRequest } from '@/core/types';
 import { Button, Card, EmptyState, Notice } from '../components';
 import { safeImageSrc } from '../letter/Letter';
@@ -25,6 +25,7 @@ export function DashboardScreen() {
   const count = (s: AbsenceRequest['status']) => mine.filter((r) => r.status === s).length;
   const returned = mine.filter((r) => r.status === 'returned' && r.uid === user.uid);
   const sig = safeImageSrc(user.savedSignature);
+  const last = lastSnapshot(app.db, user.uid);
 
   return (
     <div className="page">
@@ -40,7 +41,7 @@ export function DashboardScreen() {
 
       {returned.length > 0 ? (
         <Notice tone="warn" title={`${returned.length} letter${returned.length > 1 ? 's' : ''} returned for revision`}>
-          HR asked for changes. Open <strong>My requests</strong> and choose Revise.
+          HR asked for changes, with comments highlighted on the letter. Open <strong>My requests</strong> and choose Revise.
         </Notice>
       ) : null}
 
@@ -117,23 +118,23 @@ export function DashboardScreen() {
           )}
         </Card>
 
-        <Card title="My profile" description="Printed on your letters exactly as shown. Ask HR to correct anything wrong.">
+        <Card title="My profile" description="Your position and department are typed on each letter; the next one starts from your last.">
           <dl className="stack stack--tight">
             <div>
               <dt className="cell-sub">Name</dt>
               <dd className="cell-main">{user.name}</dd>
             </div>
             <div>
-              <dt className="cell-sub">ID number</dt>
-              <dd>{user.internId || '—'}</dd>
+              <dt className="cell-sub">Email</dt>
+              <dd>{user.email || '—'}</dd>
             </div>
             <div>
-              <dt className="cell-sub">Position</dt>
-              <dd>{user.position || '—'}</dd>
+              <dt className="cell-sub">Position on your last letter</dt>
+              <dd>{last?.position || user.position || '—'}</dd>
             </div>
             <div>
-              <dt className="cell-sub">Department</dt>
-              <dd>{user.department || '—'}</dd>
+              <dt className="cell-sub">Department on your last letter</dt>
+              <dd>{last?.department || user.department || '—'}</dd>
             </div>
             <div>
               <dt className="cell-sub">Saved signature</dt>

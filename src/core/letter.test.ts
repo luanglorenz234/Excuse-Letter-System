@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { saveLetterSettings } from './accounts';
-import { DEFAULT_FORMATS, normalizeSettings } from './db';
-import { formatLetterDate, letterDateYmd, openingText, reasonClause, wordingFor } from './letter';
+import { DEFAULT_NOTED_BY, normalizeSettings } from './db';
+import { formatLetterDate, letterDateYmd, notedByFor, openingText, reasonClause, signsInApp, wordingFor } from './letter';
 import { buildDraft, inputFrom } from './requests';
 import { seedDb } from './seed';
 import { LETTER_FORMAT_VERSION, type AbsenceRequest, type GroupMember, type MemberType } from './types';
 
 const NOW = new Date(2026, 9, 26, 9, 0, 0);
 
+/** An employee's letter from their account, or an intern's from the intern form. */
 function request(memberType: MemberType, over: Partial<ReturnType<typeof inputFrom>>): AbsenceRequest {
   const db = seedDb();
-  const user = db.users['intern-juan'];
-  if (!user) throw new Error('no sample user');
-  const input = { ...inputFrom(null, user, '2026-10-27', '2026-10-28'), memberType, ...over };
-  return buildDraft(input, user, null, NOW);
+  const filer = memberType === 'employee' ? db.users['emp-carlos'] ?? null : null;
+  const input = { ...inputFrom(null, filer, '2026-10-27', '2026-10-28'), name: 'Juan Dela Cruz', department: 'IT', ...over };
+  return buildDraft(input, filer, null, NOW);
 }
 
 describe('the 2026 letter wording', () => {
@@ -70,36 +70,60 @@ describe('the 2026 letter wording', () => {
 
   it('picks the format by member type', () => {
     const s = seedDb().settings.letter;
-    expect(wordingFor({ memberType: 'intern' }, s).closing).toBe('Respectfully,');
-    expect(wordingFor({ memberType: 'employee' }, s).closing).toBe('Very respectfully yours,');
-    expect(wordingFor({ memberType: 'employee' }, s).notedBy.map((n) => n.title)).toEqual(['CEO', 'HR Officer', 'HR / Marketing Officer']);
+    expect(wordingFor({ memberType: 'intern' }).closing).toBe('Respectfully,');
+    expect(wordingFor({ memberType: 'employee' }).closing).toBe('Very respectfully yours,');
+    expect(notedByFor({ memberType: 'employee' }, s).map((n) => n.title)).toEqual(['CEO', 'HR Officer', 'HR / Marketing Officer']);
+    expect(notedByFor({ memberType: 'intern' }, s).map((n) => n.title)).toEqual(['HR Officer']);
+  });
+
+  it('only the HR officer signs in the app; the CEO and Marketing sign the printed copy', () => {
+    const s = seedDb().settings.letter;
+    expect(notedByFor({ memberType: 'employee' }, s).map((n) => signsInApp(n, s))).toEqual([false, true, false]);
   });
 });
 
 describe('letter settings', () => {
-  it('moves settings saved before the new format to it, keeping the approval signature', () => {
+  it('moves settings saved before the 2026 format to it, keeping the approval signature', () => {
     const old = { letter: { signatoryName: 'Ms. Jean Ashley Chico', salutation: "Good day, Ma'am!", addressBlock: 'SUITE 3104C', hrSignature: 'data:image/png;base64,AAAA', templateVersion: '1.4' } };
     const s = normalizeSettings(old).letter;
     expect(s.formatVersion).toBe(LETTER_FORMAT_VERSION);
     expect(s.signatoryName).toBe('Ms. Jean Ashley S. Chico');
-    expect(s.formats.intern).toEqual(DEFAULT_FORMATS.intern);
+    expect(s.notedBy).toEqual(DEFAULT_NOTED_BY);
     expect(s.hrSignature).toBe('data:image/png;base64,AAAA');
   });
 
-  it('keeps HR edits to the new format', () => {
+  it('settings with editable wording keep only HR’s "Noted by" lists', () => {
+    const v2 = {
+      letter: {
+        formatVersion: 2,
+        signatoryName: 'Ms. Jean Ashley S. Chico',
+        formats: {
+          intern: { closing: 'Yours truly,', notedBy: [{ name: 'Ms. New HR', title: 'HR Officer' }] },
+          employee: { closing: 'Yours,', notedBy: [] },
+        },
+        templateVersion: '2.4',
+      },
+    };
+    const s = normalizeSettings(v2).letter;
+    expect(s.notedBy.intern).toEqual([{ name: 'Ms. New HR', title: 'HR Officer' }]);
+    expect(s.notedBy.employee).toEqual(DEFAULT_NOTED_BY.employee);
+    expect(s.templateVersion).toBe('3.0');
+    expect('formats' in s).toBe(false);
+  });
+
+  it('saves HR’s "Noted by" lists, and needs at least one name on each', () => {
     const db = seedDb();
     const hr = db.users['hr-chico'];
     if (!hr) throw new Error('no HR');
     const { templateVersion: _v, formatVersion: _f, ...input } = db.settings.letter;
-    const edited = { ...input, formats: { ...input.formats, employee: { ...input.formats.employee, closing: 'Respectfully yours,' } } };
+    const edited = { ...input, notedBy: { ...input.notedBy, employee: [{ name: ' Mr. New CEO ', title: 'CEO' }, ...input.notedBy.employee.slice(1)] } };
     const out = saveLetterSettings(db, hr, edited);
     expect(out.ok).toBe(true);
     if (out.ok) {
       const saved = normalizeSettings(out.changes.settings).letter;
-      expect(saved.formats.employee.closing).toBe('Respectfully yours,');
-      expect(saved.templateVersion).toBe('2.1');
+      expect(saved.notedBy.employee[0]).toEqual({ name: 'Mr. New CEO', title: 'CEO' });
+      expect(saved.templateVersion).toBe('3.1');
     }
-    const noOne = { ...input, formats: { ...input.formats, intern: { ...input.formats.intern, notedBy: [] } } };
-    expect(saveLetterSettings(db, hr, noOne).ok).toBe(false);
+    expect(saveLetterSettings(db, hr, { ...input, notedBy: { ...input.notedBy, intern: [] } }).ok).toBe(false);
   });
 });

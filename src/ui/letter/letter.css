@@ -129,6 +129,36 @@
   border-radius: 4px;
 }
 
+/*
+ * HR's comment highlights (LetterComments.tsx): boxes drawn under the text,
+ * between the letterhead and the words, like Google Docs. Never printed.
+ */
+.a4-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.a4-mark {
+  position: absolute;
+  border-radius: 2px;
+  background: rgba(250, 204, 21, 0.38);
+  border-bottom: 2px solid rgba(217, 119, 6, 0.55);
+  transition: background-color 120ms ease;
+}
+.a4-mark--active {
+  background: rgba(245, 158, 11, 0.5);
+  border-bottom-color: #b45309;
+}
+.a4-mark--draft {
+  background: rgba(250, 204, 21, 0.22);
+  border-bottom-style: dashed;
+}
+.a4-mark--pending {
+  background: rgba(59, 130, 246, 0.22);
+  border-bottom: 2px solid rgba(37, 99, 235, 0.6);
+}
+
 /* A letter shown smaller than A4, keeping its layout: the outer box takes the scaled size. */
 .letter-frame { position: relative; overflow: hidden; flex-shrink: 0; }
 .letter-frame > .a4-sheet { position: absolute; top: 0; left: 0; transform-origin: top left; }

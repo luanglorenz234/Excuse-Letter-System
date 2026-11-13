@@ -3,8 +3,14 @@
  * can move between them (and later into Firestore) unchanged.
  */
 
+/**
+ * Employees sign in to file; HR signs in as admin. Interns have no account:
+ * they file through the intern form and come back with their letter's code.
+ * 'intern' accounts can still be in older data, but can no longer sign in.
+ */
 export type Role = 'intern' | 'employee' | 'hr';
 export type MemberType = 'intern' | 'employee';
+/** 'pending' is only in older data: accounts are active as soon as they register. */
 export type UserStatus = 'active' | 'pending' | 'disabled';
 
 export interface User {
@@ -70,11 +76,40 @@ export interface PaperCopy {
   readonly receivedByName: string | null;
 }
 
+/** The parts of the letter a comment can be on: each is one paragraph or block of the A4 letter. */
+export const LETTER_BLOCKS = ['date', 'addressee', 'subject', 'salutation', 'opening', 'apology', 'thanks', 'closing', 'signers', 'noted'] as const;
+export type LetterBlock = (typeof LETTER_BLOCKS)[number];
+
+/**
+ * HR's comment on a stretch of the letter, like a Google Docs comment: the
+ * words are highlighted and the comment sits beside them. HR writes them while
+ * reviewing; the member sees them once the letter is returned.
+ */
+export interface LetterComment {
+  readonly id: string;
+  readonly block: LetterBlock;
+  /** The highlighted words, and where they started in that block's text when HR commented. */
+  readonly quote: string;
+  readonly start: number;
+  readonly body: string;
+  readonly byUid: string;
+  readonly byName: string;
+  readonly at: string;
+  /** When the member was shown it (the letter went back with it). Null: still HR's draft. */
+  readonly sentAt: string | null;
+  readonly resolvedAt: string | null;
+  readonly resolvedByName: string | null;
+}
+
+export const COMMENT_MAX = 600;
+
 export interface AbsenceRequest {
   readonly id: string;
   readonly refNo: string | null;
-  /** The person who filed it. */
+  /** The account that filed it, or '' for an intern's letter (interns have no account). */
   readonly uid: string;
+  /** An intern's letter: the code they open it with again. Null for a letter filed from an account. */
+  readonly accessCode: string | null;
   readonly memberType: MemberType;
   readonly snapshot: Snapshot;
   readonly type: AbsenceType;
@@ -98,6 +133,8 @@ export interface AbsenceRequest {
   readonly review: Review | null;
   readonly paperCopy: PaperCopy | null;
   readonly history: readonly HistoryEntry[];
+  /** HR's comments on the letter, oldest first. */
+  readonly comments: readonly LetterComment[];
   readonly createdAt: string;
   readonly submittedAt: string | null;
   readonly updatedAt: string;
@@ -110,7 +147,7 @@ export interface NotedBy {
   readonly title: string;
 }
 
-/** The wording of one letter format. Interns and employees each have their own. */
+/** The fixed wording of one letter format (src/core/db.ts DEFAULT_FORMATS). Interns and employees each have their own. */
 export interface FormatWording {
   /** "Good day," for interns, "Dear Ma'am Jean:" for employees. */
   readonly salutation: string;
@@ -120,12 +157,14 @@ export interface FormatWording {
   readonly thankYouParagraphGroup: string;
   /** "Respectfully," or "Very respectfully yours," */
   readonly closing: string;
-  /** In order. The one named like the HR signatory gets the approval signature. */
-  readonly notedBy: readonly NotedBy[];
 }
 
-/** The letter format the app draws (2: the 2026 "Notice of Absence" letterhead). */
-export const LETTER_FORMAT_VERSION = 2;
+/**
+ * The letter format the app draws. 2: the 2026 "Notice of Absence" letterhead,
+ * wording editable. 3: the same letter, wording fixed; HR edits only who is
+ * listed under "Noted by".
+ */
+export const LETTER_FORMAT_VERSION = 3;
 
 export interface LetterSettings {
   readonly formatVersion: number;
@@ -134,7 +173,8 @@ export interface LetterSettings {
   readonly signatoryTitle: string;
   readonly companyName: string;
   readonly subject: string;
-  readonly formats: Readonly<Record<MemberType, FormatWording>>;
+  /** Who is listed under "Noted by:" on each format, in order. The one named like the HR officer gets the approval signature; the rest sign the printed copy. */
+  readonly notedBy: Readonly<Record<MemberType, readonly NotedBy[]>>;
   readonly hrSignature: string;
   readonly templateVersion: string;
   readonly attachmentsEnabled: boolean;

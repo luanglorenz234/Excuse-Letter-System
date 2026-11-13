@@ -1,20 +1,26 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { memberComments } from '@/core/comments';
 import { addDaysYmd, minFilingDate, todayYmd } from '@/core/dates';
 import {
   DEFAULT_TIME_RANGE,
   buildDraft,
   canEdit,
+  canGuestEdit,
   conflictMessage,
+  filerKey,
+  findByAccessCode,
   findConflict,
   inputFrom,
+  lastSnapshot,
   newRequestId,
   saveRequest,
   type DraftInput,
 } from '@/core/requests';
-import { MAX_GROUP_SIZE, REASON_CATEGORIES, REASON_MAX, REASON_MIN, type AbsenceType, type GroupMember, type SignatureMethod, type User } from '@/core/types';
-import { Button, Card, Notice } from '../components';
-import { ScaledLetter, safeImageSrc } from '../letter/Letter';
+import { MAX_GROUP_SIZE, REASON_CATEGORIES, REASON_MAX, REASON_MIN, type AbsenceRequest, type AbsenceType, type GroupMember, type SignatureMethod, type User } from '@/core/types';
+import { Button, Card, Notice, TextInput } from '../components';
+import { safeImageSrc } from '../letter/Letter';
+import { LetterComments } from '../letter/LetterComments';
 import { printLetter } from '../letter/print';
 import { PageHeader } from '../App';
 import { SignaturePad, compressImageFile } from '../SignaturePad';
@@ -33,22 +39,45 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
   );
 }
 
-/** New request, or editing one: the form on the left, the live letter on the right. */
+/** An employee's new request, or editing one of theirs. */
 export function RequestFormScreen() {
   const { id } = useParams();
   const app = useApp();
   const user = useUser();
   const existing = id ? app.db.requests[id] ?? null : null;
   if (id && !canEdit(existing, user)) return <Navigate to={paths.myRequests} replace />;
-  return <RequestForm key={id ?? 'new'} user={user} editingId={existing ? existing.id : null} />;
+  return <RequestForm key={id ?? 'new'} filer={user} existing={existing} />;
 }
 
-function RequestForm({ user, editingId }: { user: User; editingId: string | null }) {
+/** The intern form: no account, just names and department. */
+export function InternFormScreen() {
+  return <RequestForm key="intern-new" filer={null} existing={null} />;
+}
+
+/** An intern revising their letter, opened with its code. */
+export function InternEditScreen() {
+  const { code = '' } = useParams();
+  const app = useApp();
+  const existing = findByAccessCode(app.db, code);
+  if (!existing?.accessCode) return <Navigate to={paths.home} replace />;
+  if (!canGuestEdit(existing)) return <Navigate to={paths.internLetter(existing.accessCode)} replace />;
+  return <RequestForm key={existing.id} filer={null} existing={existing} />;
+}
+
+/**
+ * The form on the left, the live letter on the right. `filer`: the signed-in
+ * employee, or null for an intern (no account: they type their name and
+ * department, and get a code for the letter).
+ */
+function RequestForm({ filer, existing }: { filer: User | null; existing: AbsenceRequest | null }) {
   const app = useApp();
   const navigate = useNavigate();
-  const existing = editingId ? app.db.requests[editingId] ?? null : null;
+  const intern = filer === null;
+  const editingId = existing?.id ?? null;
   const tomorrow = addDaysYmd(todayYmd(), 1);
-  const [input, setInput] = useState<DraftInput>(() => inputFrom(existing, user, tomorrow, addDaysYmd(tomorrow, 1)));
+  const [input, setInput] = useState<DraftInput>(() =>
+    inputFrom(existing, filer, tomorrow, addDaysYmd(tomorrow, 1), filer ? lastSnapshot(app.db, filer.uid) : null),
+  );
   const [saveSig, setSaveSig] = useState(true);
   const [busy, setBusy] = useState<null | 'draft' | 'submitted'>(null);
   const [addPick, setAddPick] = useState('');
@@ -58,20 +87,24 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
   const setMember = (i: number, patch: Partial<GroupMember>) =>
     setInput((cur) => ({ ...cur, groupMembers: cur.groupMembers.map((m, j) => (j === i ? { ...m, ...patch } : m)) }));
 
-  const draft = useMemo(() => buildDraft(input, user, existing, new Date()), [input, user, existing]);
+  const draft = useMemo(() => buildDraft(input, filer, existing, new Date()), [input, filer, existing]);
   const conflict = useMemo(() => findConflict(app.db, draft, editingId), [app.db, draft, editingId]);
+  const comments = useMemo(() => (existing ? memberComments(existing) : []), [existing]);
   const isPending = existing?.status === 'submitted';
   const reasonLen = input.reasonDetails.trim().length;
   const minDate = minFilingDate();
   const digital = input.signatureMethod === 'digital';
   const full = input.groupMembers.length + 1 >= MAX_GROUP_SIZE;
+  const back = intern ? (existing?.accessCode ? paths.internLetter(existing.accessCode) : paths.home) : paths.myRequests;
 
+  // Employees add other employees from their accounts; interns type everyone in.
   const addable = useMemo(() => {
+    if (intern) return [];
     const taken = new Set(input.groupMembers.map((m) => m.uid).filter(Boolean));
     return Object.values(app.db.users)
-      .filter((u) => (u.role === 'intern' || u.role === 'employee') && u.status === 'active' && u.uid !== user.uid && !taken.has(u.uid))
+      .filter((u) => u.role === 'employee' && u.status !== 'disabled' && u.uid !== filer.uid && !taken.has(u.uid))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [app.db.users, input.groupMembers, user.uid]);
+  }, [app.db.users, input.groupMembers, intern, filer]);
 
   const addFromList = () => {
     const u = app.db.users[addPick];
@@ -83,10 +116,7 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
       app.notify(`A group letter can have at most ${MAX_GROUP_SIZE} people.`, 'warn');
       return;
     }
-    set('groupMembers', [
-      ...input.groupMembers,
-      { uid: u.uid, name: u.name, internId: u.internId, position: u.position, department: u.department, memberType: u.memberType ?? (u.role === 'employee' ? 'employee' : 'intern'), signature: '' },
-    ]);
+    set('groupMembers', [...input.groupMembers, { uid: u.uid, name: u.name, internId: u.internId, position: u.position, department: u.department, memberType: 'employee', signature: '' }]);
     setAddPick('');
   };
   const addManual = () => {
@@ -112,48 +142,64 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
   const save = async (target: 'draft' | 'submitted') => {
     setBusy(target);
     const now = new Date();
-    const outcome = saveRequest(app.db, user, input, target, editingId, { now, newId: newRequestId(now), saveSignatureToProfile: saveSig });
+    const outcome = saveRequest(app.db, filer, input, target, editingId, { now, newId: newRequestId(now), saveSignatureToProfile: saveSig });
     setProblem(outcome.ok ? null : outcome.error);
     const saved = await app.run(outcome);
     setBusy(null);
-    if (saved) navigate(paths.myRequests);
+    if (!saved || !outcome.ok) return;
+    if (intern && outcome.value.accessCode) navigate(paths.internLetter(outcome.value.accessCode), { state: { fresh: !existing } });
+    else navigate(paths.myRequests);
   };
+
+  const title = intern ? (existing ? 'Revise your letter' : 'Intern absence form') : isPending ? 'Edit pending request' : existing ? 'Revise request' : 'New absence request';
 
   return (
     <div className="page page--wide">
       <PageHeader
-        title={isPending ? 'Edit pending request' : existing ? 'Revise request' : 'New absence request'}
-        subtitle="Fill in the details. The official letter on the right updates as you type; its wording is set by HR."
+        title={title}
+        subtitle={
+          intern
+            ? 'No account needed. Fill in your details; the official letter on the right updates as you type.'
+            : 'Fill in the details. The official letter on the right updates as you type.'
+        }
         actions={
-          <Button variant="ghost" onClick={() => navigate(paths.myRequests)}>
-            Back to my requests
+          <Button variant="ghost" onClick={() => navigate(back)}>
+            {intern ? 'Back' : 'Back to my requests'}
           </Button>
         }
       />
 
       {existing?.status === 'returned' && existing.review ? (
         <Notice tone="warn" title={`Returned for revision by ${existing.review.byName}`}>
-          HR remarks: "{existing.review.remarks}"
+          {comments.length > 0 ? `HR left ${comments.length} comment${comments.length === 1 ? '' : 's'} on the letter, highlighted on the right. ` : null}
+          {existing.review.remarks && !/^Returned with \d+ comments?/.test(existing.review.remarks) ? `HR remarks: "${existing.review.remarks}"` : null}
         </Notice>
       ) : null}
       {isPending ? (
-        <Notice tone="info">This request is still waiting for HR. Your changes replace the version HR sees. Once HR decides on it, it can no longer be edited.</Notice>
+        <Notice tone="info">This letter is still waiting for HR. Your changes replace the version HR sees. Once HR decides on it, it can no longer be edited.</Notice>
       ) : null}
 
       <div className="workspace">
         <div className="stack">
-          <Card title="1. Absence details" description={`On the letter: ${user.name} · ${user.position || 'no position yet'} · ${user.internId || 'no ID yet'}`}>
-            <div className="stack">
-              <div className="field">
-                <label className="field__label" htmlFor="f-member-type">
-                  Filing as
-                </label>
-                <select id="f-member-type" className="field__select" value={input.memberType} onChange={(e) => set('memberType', e.target.value === 'employee' ? 'employee' : 'intern')}>
-                  <option value="intern">Intern</option>
-                  <option value="employee">Employee</option>
-                </select>
-              </div>
+          <Card title="1. Your details" description={intern ? 'Printed on the letter: your name. Your department is for HR.' : 'Your position prints under your name. Check it on every letter.'}>
+            <div className="grid-2">
+              {intern ? (
+                <TextInput label="Full name" value={input.name} onChange={(e) => set('name', e.target.value)} autoComplete="name" placeholder="e.g. Juan A. Dela Cruz" required />
+              ) : (
+                <div className="field">
+                  <span className="field__label">Name</span>
+                  <span className="cell-main">{filer.name}</span>
+                </div>
+              )}
+              {intern ? null : (
+                <TextInput label="Position" value={input.position} onChange={(e) => set('position', e.target.value)} placeholder="e.g. Operations Associate" required />
+              )}
+              <TextInput label="Department" value={input.department} onChange={(e) => set('department', e.target.value)} placeholder="e.g. Information Technology" required />
+            </div>
+          </Card>
 
+          <Card title="2. Absence details">
+            <div className="stack">
               <div className="field">
                 <span className="field__label">Who is absent?</span>
                 <Segmented
@@ -180,16 +226,22 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
                         {m.uid ? (
                           <div>
                             <div className="cell-main">{m.name}</div>
-                            <div className="cell-sub">
-                              {m.position || '—'}
-                              {m.internId ? ` · ${m.internId}` : ''}
-                            </div>
+                            <div className="cell-sub">{[m.position, m.department].filter(Boolean).join(' · ') || '—'}</div>
                           </div>
                         ) : (
                           <div className="stack stack--tight" style={{ flex: 1 }}>
                             <input className="field__input" placeholder="Full name *" aria-label="Full name" value={m.name} onChange={(e) => setMember(i, { name: e.target.value })} />
-                            <input className="field__input" placeholder="ID number (optional)" aria-label="ID number" value={m.internId} onChange={(e) => setMember(i, { internId: e.target.value })} />
-                            <input className="field__input" placeholder="Position" aria-label="Position" value={m.position} onChange={(e) => setMember(i, { position: e.target.value })} />
+                            {intern ? (
+                              <input
+                                className="field__input"
+                                placeholder="Department (blank: same as yours)"
+                                aria-label="Department"
+                                value={m.department}
+                                onChange={(e) => setMember(i, { department: e.target.value })}
+                              />
+                            ) : (
+                              <input className="field__input" placeholder="Position" aria-label="Position" value={m.position} onChange={(e) => setMember(i, { position: e.target.value })} />
+                            )}
                           </div>
                         )}
                         <Button size="small" variant="ghost" onClick={() => set('groupMembers', input.groupMembers.filter((_, j) => j !== i))}>
@@ -199,24 +251,35 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
                       {digital ? <SignaturePad small label={m.name || 'This person'} value={m.signature} onChange={(sig) => setMember(i, { signature: sig })} /> : null}
                     </div>
                   ))}
-                  <div className="row">
-                    <select className="field__select" style={{ flex: 1, minWidth: 200 }} aria-label="Choose a person to add" value={addPick} onChange={(e) => setAddPick(e.target.value)}>
-                      <option value="">{addable.length ? 'Choose an intern or employee…' : 'Everyone in the list is already added'}</option>
-                      {addable.map((u) => (
-                        <option key={u.uid} value={u.uid}>
-                          {u.name} — {u.position || u.role}
-                        </option>
-                      ))}
-                    </select>
-                    <Button size="small" variant="ghost" onClick={addFromList}>
-                      Add
-                    </Button>
-                  </div>
-                  <div>
-                    <Button size="small" variant="link" onClick={addManual}>
-                      Add someone not in the list
-                    </Button>
-                  </div>
+                  {intern ? (
+                    <div>
+                      <Button size="small" variant="ghost" onClick={addManual}>
+                        Add a person
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="row">
+                        <select className="field__select" style={{ flex: 1, minWidth: 200 }} aria-label="Choose an employee to add" value={addPick} onChange={(e) => setAddPick(e.target.value)}>
+                          <option value="">{addable.length ? 'Choose an employee…' : 'Everyone in the list is already added'}</option>
+                          {addable.map((u) => (
+                            <option key={u.uid} value={u.uid}>
+                              {u.name}
+                              {u.position ? ` — ${u.position}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <Button size="small" variant="ghost" onClick={addFromList}>
+                          Add
+                        </Button>
+                      </div>
+                      <div>
+                        <Button size="small" variant="link" onClick={addManual}>
+                          Add someone not in the list
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : null}
 
@@ -290,7 +353,7 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
 
               {conflict ? (
                 <Notice tone="danger" live>
-                  {conflictMessage(conflict, user.uid)}
+                  {conflictMessage(conflict, filerKey(draft))}
                 </Notice>
               ) : null}
 
@@ -330,7 +393,7 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
             </div>
           </Card>
 
-          <Card title="2. Signature" description="Choose how you will sign.">
+          <Card title="3. Signature" description="Choose how you will sign.">
             <div className="stack">
               <Segmented
                 label="Signature"
@@ -349,17 +412,19 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
                     onChange={(sig) => set('internSignature', sig)}
                     allowUpload
                     extra={
-                      user.savedSignature ? (
-                        <Button size="small" variant="ghost" onClick={() => set('internSignature', user.savedSignature ?? '')}>
+                      filer?.savedSignature ? (
+                        <Button size="small" variant="ghost" onClick={() => set('internSignature', filer.savedSignature ?? '')}>
                           Use saved signature
                         </Button>
                       ) : null
                     }
                   />
-                  <label className="check">
-                    <input type="checkbox" checked={saveSig} onChange={(e) => setSaveSig(e.target.checked)} />
-                    Save this signature to my profile for next time
-                  </label>
+                  {intern ? null : (
+                    <label className="check">
+                      <input type="checkbox" checked={saveSig} onChange={(e) => setSaveSig(e.target.checked)} />
+                      Save this signature to my profile for next time
+                    </label>
+                  )}
                 </>
               ) : (
                 <div className="stack">
@@ -419,26 +484,27 @@ function RequestForm({ user, editingId }: { user: User; editingId: string | null
             </Notice>
           ) : null}
           <div className="row">
-            {isPending ? null : (
+            {isPending || intern ? null : (
               <Button variant="ghost" busy={busy === 'draft'} disabled={busy !== null} onClick={() => void save('draft')}>
                 Save as draft
               </Button>
             )}
             <Button variant="primary" busy={busy === 'submitted'} disabled={busy !== null} onClick={() => void save('submitted')}>
-              {isPending ? 'Save changes' : 'Sign and submit'}
+              {isPending ? 'Save changes' : existing?.status === 'returned' ? 'Sign and resubmit' : 'Sign and submit'}
             </Button>
           </div>
+          {intern && !existing ? <p className="small muted">After you submit you get a letter code. Write it down: it is the only way back to your letter.</p> : null}
         </div>
 
         <div className="preview" aria-label="Letter preview">
           <div className="preview__bar">
-            <span>Live preview · gold marks what you typed</span>
+            <span>Live preview · gold marks what you typed{comments.length > 0 ? ' · yellow marks HR comments' : ''}</span>
             <Button size="small" variant="ghost" onClick={() => void printLetter(draft, app.db.settings.letter)}>
               Test print / PDF
             </Button>
           </div>
           <div className="preview__stage">
-            <ScaledLetter request={draft} settings={app.db.settings.letter} highlight />
+            <LetterComments request={draft} settings={app.db.settings.letter} comments={comments} viewer="member" highlight />
           </div>
         </div>
       </div>

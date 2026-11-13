@@ -8,9 +8,9 @@ import { useApp } from './state/AppState';
 import { paths } from './state/paths';
 import { HomeScreen } from './screens/HomeScreen';
 import { SignInScreen } from './screens/SignInScreen';
-import { PendingScreen } from './screens/PendingScreen';
 import { DashboardScreen } from './screens/DashboardScreen';
-import { RequestFormScreen } from './screens/RequestFormScreen';
+import { InternEditScreen, InternFormScreen, RequestFormScreen } from './screens/RequestFormScreen';
+import { InternLetterScreen } from './screens/InternLetterScreen';
 import { MyRequestsScreen } from './screens/MyRequestsScreen';
 import { QueueScreen } from './screens/QueueScreen';
 import { ReviewScreen } from './screens/ReviewScreen';
@@ -125,6 +125,9 @@ export function AppShell() {
               <Route path={paths.home} element={<HomeScreen />} />
               <Route path={paths.memberSignIn} element={<SignInScreen mode="member" />} />
               <Route path={paths.adminSignIn} element={<SignInScreen mode="admin" />} />
+              <Route path={paths.internForm} element={<InternFormScreen />} />
+              <Route path="/letter/:code" element={<InternLetterScreen />} />
+              <Route path="/letter/:code/edit" element={<InternEditScreen />} />
               <Route path="*" element={<Navigate to={paths.home} replace />} />
             </Routes>
           </main>
@@ -165,7 +168,7 @@ export function AppShell() {
         <TitleBar windowControls={windowControls} />
         {SHOW_TEST_BAR ? <TestBar /> : null}
         <main className="shell__main" id="main">
-          {user.status === 'pending' ? <PendingScreen /> : <SignedInRoutes user={user} />}
+          <SignedInRoutes user={user} />
         </main>
       </div>
     </div>
@@ -197,35 +200,41 @@ function SignedInRoutes({ user }: { user: User }) {
   );
 }
 
+const TEST_INTERN = '__intern';
+
 /**
  * For local testing only (src/config.ts SHOW_TEST_BAR): be anyone in the
- * sample data in one click, and put the sample data back.
+ * sample data in one click (or an intern, who has no account), and put the
+ * sample data back.
  */
 function TestBar() {
   const app = useApp();
   const navigate = useNavigate();
-  const people = Object.values(app.db.users).sort((a, b) => Number(isHr(b)) - Number(isHr(a)) || a.name.localeCompare(b.name));
+  const location = useLocation();
+  // Interns have no account: only the people who can sign in.
+  const people = Object.values(app.db.users)
+    .filter((u) => u.role !== 'intern')
+    .sort((a, b) => Number(isHr(b)) - Number(isHr(a)) || a.name.localeCompare(b.name));
   const waiting = Object.values(app.db.requests).filter((r) => r.status === 'submitted').length;
-  const be = (u: User | null) => {
+  const be = (value: string) => {
+    const u = app.db.users[value];
     if (u) {
       app.signInAs(u.uid);
       navigate(homeFor(u));
-    } else {
-      app.signOut();
-      navigate(paths.home);
+      return;
     }
+    app.signOut();
+    navigate(value === TEST_INTERN ? paths.internForm : paths.home);
   };
+  const internPage = !app.user && (location.pathname === paths.internForm || location.pathname.startsWith('/letter/'));
   return (
     <div className="test-bar" role="region" aria-label="Test tools">
       <span className="test-bar__label">Test mode · data in {app.platform.storageLabel}</span>
       <label className="test-bar__pick">
         <span className="visually-hidden">Be someone else</span>
-        <select
-          value={app.user?.uid ?? ''}
-          onChange={(e) => be(app.db.users[e.target.value] ?? null)}
-          className="test-bar__select"
-        >
+        <select value={app.user?.uid ?? (internPage ? TEST_INTERN : '')} onChange={(e) => be(e.target.value)} className="test-bar__select">
           <option value="">Signed out (home)</option>
+          <option value={TEST_INTERN}>Intern · no account (intern form)</option>
           {people.map((u) => (
             <option key={u.uid} value={u.uid}>
               {u.name} · {roleWord(u.role)}

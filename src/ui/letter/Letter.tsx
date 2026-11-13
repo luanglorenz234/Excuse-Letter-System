@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { formatShortDate } from '@/core/dates';
-import { formatLetterDate, letterDateYmd, openingSegments, wordingFor, type Segment } from '@/core/letter';
+import { formatLetterDate, letterDateYmd, notedByFor, openingSegments, signsInApp, wordingFor, type Segment } from '@/core/letter';
 import { isGroupRequest, requestMembers, type LetterMember } from '@/core/requests';
-import type { AbsenceRequest, LetterSettings } from '@/core/types';
+import type { AbsenceRequest, LetterBlock, LetterSettings } from '@/core/types';
 import './letter.css';
 
 export interface LetterOptions {
@@ -17,7 +17,12 @@ export interface LetterOptions {
 export interface LetterProps extends LetterOptions {
   readonly request: AbsenceRequest;
   readonly settings: LetterSettings;
+  /** Drawn on the page under the text, in A4 pixels: HR's comment highlights (LetterComments.tsx). Never printed. */
+  readonly overlay?: ReactNode;
 }
+
+/** Marks a part of the letter a comment can be on (types.ts LETTER_BLOCKS). */
+const block = (id: LetterBlock) => ({ 'data-block': id });
 
 /** Only inline image data (drawn or uploaded signatures) may be an image source. */
 export function safeImageSrc(src: string | null | undefined): string {
@@ -71,10 +76,13 @@ function MemberSignature({ req, member, first, blank, clean }: { req: AbsenceReq
  * The official letter on the 2026 letterhead, exactly one A4 page, rebuilt
  * from the request every time. The member type picks the format: interns
  * close "Respectfully," and are noted by HR; employees close "Very
- * respectfully yours," with their position, noted by the CEO and HR.
+ * respectfully yours," with their position, noted by the CEO, HR and
+ * Marketing. Only HR's signature goes on in the app; the others sign the
+ * printed copy.
  */
-export function Letter({ request: req, settings, highlight = true, clean = false, blankSignature = false }: LetterProps) {
-  const wording = wordingFor(req, settings);
+export function Letter({ request: req, settings, highlight = true, clean = false, blankSignature = false, overlay }: LetterProps) {
+  const wording = wordingFor(req);
+  const notedBy = notedByFor(req, settings);
   const employee = req.memberType === 'employee';
   const group = isGroupRequest(req);
   const members = requestMembers(req);
@@ -110,11 +118,14 @@ export function Letter({ request: req, settings, highlight = true, clean = false
         </div>
       ) : null}
       {!clean && !approved && req.status !== 'draft' ? <div className="a4-status-watermark">Status: {req.status}</div> : null}
+      {overlay && !clean ? <div className="a4-overlay">{overlay}</div> : null}
 
       <div className={`a4-content a4-content--${employee ? 'employee' : 'intern'}`} ref={content}>
-        <p className="a4-block">{formatLetterDate(letterYmd)}</p>
+        <p className="a4-block" {...block('date')}>
+          {formatLetterDate(letterYmd)}
+        </p>
 
-        <p className="a4-block a4-bold">
+        <p className="a4-block a4-bold" {...block('addressee')}>
           {settings.signatoryName}
           <br />
           {settings.companyName}
@@ -122,18 +133,28 @@ export function Letter({ request: req, settings, highlight = true, clean = false
           {settings.signatoryTitle}
         </p>
 
-        <p className="a4-block a4-bold a4-subject">Subject: {settings.subject}</p>
+        <p className="a4-block a4-bold a4-subject" {...block('subject')}>
+          Subject: {settings.subject}
+        </p>
 
-        <p className="a4-block">{wording.salutation}</p>
+        <p className="a4-block" {...block('salutation')}>
+          {wording.salutation}
+        </p>
 
-        <p className="a4-block a4-justify">
+        <p className="a4-block a4-justify" {...block('opening')}>
           <Segments parts={openingSegments(req, letterYmd)} highlight={highlight} />
         </p>
-        <p className="a4-block a4-justify">{group ? wording.apologyParagraphGroup : wording.apologyParagraph}</p>
-        <p className="a4-block a4-thanks">{group ? wording.thankYouParagraphGroup : wording.thankYouParagraph}</p>
+        <p className="a4-block a4-justify" {...block('apology')}>
+          {group ? wording.apologyParagraphGroup : wording.apologyParagraph}
+        </p>
+        <p className="a4-block a4-thanks" {...block('thanks')}>
+          {group ? wording.thankYouParagraphGroup : wording.thankYouParagraph}
+        </p>
 
-        <p className="a4-line">{wording.closing}</p>
-        <div className={`a4-signers${members.length > 1 ? ' a4-signers--group' : ''}`}>
+        <p className="a4-line" {...block('closing')}>
+          {wording.closing}
+        </p>
+        <div className={`a4-signers${members.length > 1 ? ' a4-signers--group' : ''}`} {...block('signers')}>
           {members.map((m, i) => (
             <div key={i} className="a4-signer">
               <MemberSignature req={req} member={m} first={i === 0} blank={blankSignature} clean={clean} />
@@ -143,23 +164,27 @@ export function Letter({ request: req, settings, highlight = true, clean = false
           ))}
         </div>
 
-        <p className="a4-line a4-noted">Noted by:</p>
-        {wording.notedBy.map((n, i) => {
-          const signs = n.name === settings.signatoryName;
-          return (
-            <div key={i} className="a4-signer">
-              <div className="a4-sig">
-                {signs && hrSig && !blankSignature ? (
-                  <img src={hrSig} alt={`Signature of ${n.name}`} />
-                ) : signs && !approved && !clean && !blankSignature ? (
-                  <span className="a4-sig__placeholder">[Signed by HR on approval]</span>
-                ) : null}
+        <div {...block('noted')}>
+          <p className="a4-line a4-noted">Noted by:</p>
+          {notedBy.map((n, i) => {
+            const inApp = signsInApp(n, settings);
+            return (
+              <div key={i} className="a4-signer">
+                <div className="a4-sig">
+                  {inApp && hrSig && !blankSignature ? (
+                    <img src={hrSig} alt={`Signature of ${n.name}`} />
+                  ) : clean || blankSignature ? null : inApp ? (
+                    approved ? null : <span className="a4-sig__placeholder">[Signed by HR on approval]</span>
+                  ) : (
+                    <span className="a4-sig__placeholder">[Signs the printed copy]</span>
+                  )}
+                </div>
+                <div className="a4-line">{n.name}</div>
+                {n.title ? <div className="a4-line">{n.title}</div> : null}
               </div>
-              <div className="a4-line">{n.name}</div>
-              {n.title ? <div className="a4-line">{n.title}</div> : null}
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -169,7 +194,7 @@ const A4_WIDTH = 794;
 const A4_HEIGHT = 1123;
 
 /** The letter scaled down to fit the width it is given, layout unchanged. */
-export function ScaledLetter(props: LetterProps & { readonly maxWidth?: number }) {
+export function ScaledLetter(props: LetterProps & { readonly maxWidth?: number | undefined }) {
   const ref = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0.6);
   useLayoutEffect(() => {

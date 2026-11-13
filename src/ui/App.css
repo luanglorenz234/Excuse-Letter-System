@@ -325,8 +325,13 @@
   gap: var(--space-12);
   align-items: start;
 }
+/* HR's review: the letter and its comment margin get more of the width. */
+.workspace--review {
+  grid-template-columns: minmax(320px, 0.75fr) minmax(0, 1.35fr);
+}
 @container shell (width < 1100px) {
-  .workspace {
+  .workspace,
+  .workspace--review {
     grid-template-columns: 1fr;
   }
 }
@@ -348,6 +353,8 @@
 }
 .preview__stage {
   width: 100%;
+  /* The letter fits whatever width it is given; never let it widen the column. */
+  min-width: 0;
   display: flex;
   justify-content: center;
   padding: var(--space-8);
@@ -518,15 +525,20 @@
   background: none;
   cursor: zoom-in;
 }
-.member {
-  display: grid;
-  gap: var(--space-6);
-  padding: var(--space-8);
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius-chip);
+/* An intern letter's code: "K7Q-4MZ". */
+.code-chip {
+  display: inline-block;
+  padding: 1px 8px;
+  border: var(--border-width) solid var(--gold-edge);
+  border-radius: var(--radius-sm);
+  background: var(--gold-soft);
+  color: var(--text);
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  letter-spacing: 0.08em;
 }
-.member--pending {
-  border-color: var(--gold-edge);
+.code-chip--large {
+  padding: var(--space-2) var(--space-6);
+  font-size: 1.25rem;
 }
 
 /* ---- home and sign-in --------------------------------------------------- */
@@ -557,6 +569,10 @@
   display: grid;
   gap: var(--space-6);
   align-content: start;
+}
+.welcome__code {
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--border-soft);
 }
 .signin {
   display: grid;

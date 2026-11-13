@@ -1,57 +1,35 @@
 {
-  "currentUserUid": null,
-  "currentScreen": "home",
-  "selectedRequestIdForReview": "req-2026-003",
-  "editingRequestId": null,
-  "calendarMonthOffset": 0,
-  "sidebarCollapsed": false,
   "settings": {
     "letter": {
-      "formatVersion": 2,
+      "formatVersion": 3,
       "signatoryName": "Ms. Jean Ashley S. Chico",
       "signatoryTitle": "HR Officer",
       "companyName": "Alpha Premier Group of Companies",
       "subject": "Notice of Absence",
-      "formats": {
-        "intern": {
-          "salutation": "Good day,",
-          "apologyParagraph": "I kindly ask for your understanding and I apologize for any inconvenience my absence may cause. I will make sure to complete or properly coordinate my pending tasks before leaving.",
-          "apologyParagraphGroup": "We kindly ask for your understanding and we apologize for any inconvenience our absence may cause. We will make sure to complete or properly coordinate our pending tasks before leaving.",
-          "thankYouParagraph": "Thank you for your kind consideration.",
-          "thankYouParagraphGroup": "Thank you for your kind consideration.",
-          "closing": "Respectfully,",
-          "notedBy": [
-            {
-              "name": "Ms. Jean Ashley S. Chico",
-              "title": "HR Officer"
-            }
-          ]
-        },
-        "employee": {
-          "salutation": "Dear Ma’am Jean:",
-          "apologyParagraph": "I kindly ask for your understanding regarding my unavailability on the said date. I apologize for any inconvenience my absence may cause. I will make sure to complete or properly coordinate my pending tasks before leaving.",
-          "apologyParagraphGroup": "We kindly ask for your understanding regarding our unavailability on the said date. We apologize for any inconvenience our absence may cause. We will make sure to complete or properly coordinate our pending tasks before leaving.",
-          "thankYouParagraph": "Thank you for your kind understanding and consideration.",
-          "thankYouParagraphGroup": "Thank you for your kind understanding and consideration.",
-          "closing": "Very respectfully yours,",
-          "notedBy": [
-            {
-              "name": "Mr. Mark Anthony Santos",
-              "title": "CEO"
-            },
-            {
-              "name": "Ms. Jean Ashley S. Chico",
-              "title": "HR Officer"
-            },
-            {
-              "name": "Ms. Ma. Beatriz B. Conos",
-              "title": "HR / Marketing Officer"
-            }
-          ]
-        }
+      "notedBy": {
+        "intern": [
+          {
+            "name": "Ms. Jean Ashley S. Chico",
+            "title": "HR Officer"
+          }
+        ],
+        "employee": [
+          {
+            "name": "Mr. Mark Anthony Santos",
+            "title": "CEO"
+          },
+          {
+            "name": "Ms. Jean Ashley S. Chico",
+            "title": "HR Officer"
+          },
+          {
+            "name": "Ms. Ma. Beatriz B. Conos",
+            "title": "HR / Marketing Officer"
+          }
+        ]
       },
       "hrSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230c2340%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230c2340%22%3EJean%20Ashley%20Chico%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "templateVersion": "2.0",
+      "templateVersion": "3.0",
       "attachmentsEnabled": false
     }
   },
@@ -70,160 +48,8 @@
       "department": "Human Resources",
       "role": "hr",
       "status": "active",
-      "requiredHours": 0,
-      "renderedHours": 0,
       "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230c2340%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230c2340%22%3EJean%20Ashley%20Chico%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
       "createdAt": "2026-01-10T09:00:00+08:00"
-    },
-    "intern-juan": {
-      "uid": "intern-juan",
-      "name": "Prince Lorenz P. Lu-ang",
-      "email": "demo@intern.com",
-      "internId": "APG-INT-2026-001",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 240,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e3a8a%22%3EPrince%20Lorenz%20P.%20Lu-ang%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "demo-intern": {
-      "uid": "intern-juan",
-      "name": "Prince Lorenz P. Lu-ang",
-      "email": "demo@intern.com",
-      "internId": "APG-INT-2026-001",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 240,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e3a8a%22%3EPrince%20Lorenz%20P.%20Lu-ang%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "intern-lorenz": {
-      "uid": "intern-juan",
-      "name": "Prince Lorenz P. Lu-ang",
-      "email": "prince.luang@university.edu.ph",
-      "internId": "APG-INT-2026-001",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 240,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e3a8a%22%3EPrince%20Lorenz%20P.%20Lu-ang%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "intern-lord": {
-      "uid": "intern-lord",
-      "name": "Lord L. Bartolome",
-      "email": "lord.bartolome@university.edu.ph",
-      "internId": "APG-INT-2026-002",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 0,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e293b%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e293b%22%3ELord%20L.%20Bartolome%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "intern-mark": {
-      "uid": "intern-lord",
-      "name": "Lord L. Bartolome",
-      "email": "mark.villanueva@university.edu.ph",
-      "internId": "APG-INT-2026-002",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 0,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e293b%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e293b%22%3ELord%20L.%20Bartolome%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "intern-aureo": {
-      "uid": "intern-aureo",
-      "name": "Christopher Joseph V. Aureo",
-      "email": "christopher.aureo@university.edu.ph",
-      "internId": "APG-INT-2026-003",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 0,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230f172a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230f172a%22%3EChristopher%20Joseph%20V.%20Aureo%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "intern-kevs": {
-      "uid": "intern-aureo",
-      "name": "Christopher Joseph V. Aureo",
-      "email": "kevin.ramos@university.edu.ph",
-      "internId": "APG-INT-2026-003",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 0,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230f172a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230f172a%22%3EChristopher%20Joseph%20V.%20Aureo%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "intern-john": {
-      "uid": "intern-lord",
-      "name": "Lord L. Bartolome",
-      "email": "john.santos@university.edu.ph",
-      "internId": "APG-INT-2026-021",
-      "position": "IT Associate Intern",
-      "department": "Information Technology",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 480,
-      "renderedHours": 0,
-      "savedSignature": "",
-      "createdAt": "2026-09-01T08:30:00+08:00"
-    },
-    "intern-sofia": {
-      "uid": "intern-sofia",
-      "name": "Sofia Gabrielle Reyes",
-      "email": "sofia.reyes@university.edu.ph",
-      "internId": "APG-INT-2026-019",
-      "position": "Operations & Finance Intern",
-      "department": "Operations",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "active",
-      "requiredHours": 400,
-      "renderedHours": 192,
-      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e293b%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e293b%22%3ESofia%20G.%20Reyes%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
-      "createdAt": "2026-09-15T08:30:00+08:00"
-    },
-    "intern-maria": {
-      "uid": "intern-maria",
-      "name": "Maria Clara Santos",
-      "email": "maria.santos@university.edu.ph",
-      "internId": "",
-      "position": "",
-      "department": "",
-      "role": "intern",
-      "memberType": "intern",
-      "status": "pending",
-      "requiredHours": 480,
-      "renderedHours": 0,
-      "savedSignature": "",
-      "createdAt": "2026-11-09T14:20:00+08:00"
     },
     "emp-carlos": {
       "uid": "emp-carlos",
@@ -235,21 +61,32 @@
       "role": "employee",
       "memberType": "employee",
       "status": "active",
-      "requiredHours": 0,
-      "renderedHours": 0,
       "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230c2340%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230c2340%22%3ECarlos%20E.%20Mendoza%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
       "createdAt": "2025-06-01T08:30:00+08:00"
+    },
+    "emp-ana": {
+      "uid": "emp-ana",
+      "name": "Ana Patricia Lim",
+      "email": "ana.lim@alphapremier.com",
+      "internId": "APG-EMP-2024-031",
+      "position": "Marketing Associate",
+      "department": "Marketing",
+      "role": "employee",
+      "memberType": "employee",
+      "status": "active",
+      "savedSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e293b%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e293b%22%3ESofia%20G.%20Reyes%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
+      "createdAt": "2024-08-12T08:30:00+08:00"
     }
   },
   "requests": {
     "req-2026-001": {
       "id": "req-2026-001",
       "refNo": "APG-EL-2026-0041",
-      "uid": "intern-juan",
+      "uid": "",
       "snapshot": {
         "name": "Prince Lorenz P. Lu-ang",
-        "internId": "APG-INT-2026-001",
-        "position": "IT Associate Intern",
+        "internId": "",
+        "position": "",
         "department": "Information Technology"
       },
       "type": "full",
@@ -262,7 +99,6 @@
       "hoursImpact": 8,
       "reasonCategory": "Academic",
       "reasonDetails": "I am required to attend our mandatory Thesis Proposal Defense at the university campus in Manila, where my presence as the lead presenter is strictly required by the faculty panel.",
-      "attachment": null,
       "internSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e3a8a%22%3EPrince%20Lorenz%20P.%20Lu-ang%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
       "status": "approved",
       "review": {
@@ -275,8 +111,8 @@
       "history": [
         {
           "status": "submitted",
-          "byUid": "intern-juan",
-          "byName": "Juan Miguel Dela Cruz",
+          "byUid": "",
+          "byName": "Prince Lorenz P. Lu-ang",
           "remarks": "Submitted absence request.",
           "at": "2026-11-03T10:15:00+08:00"
         },
@@ -291,16 +127,21 @@
       "createdAt": "2026-11-03T10:00:00+08:00",
       "submittedAt": "2026-11-03T10:15:00+08:00",
       "updatedAt": "2026-11-03T15:10:00+08:00",
-      "templateVersion": "1.0"
+      "templateVersion": "1.0",
+      "memberType": "intern",
+      "accessCode": "TQ7K2M",
+      "memberUids": [],
+      "groupMembers": [],
+      "comments": []
     },
     "req-2026-002": {
       "id": "req-2026-002",
       "refNo": "APG-EL-2026-0042",
-      "uid": "intern-sofia",
+      "uid": "",
       "snapshot": {
         "name": "Sofia Gabrielle Reyes",
-        "internId": "APG-INT-2026-019",
-        "position": "Operations & Finance Intern",
+        "internId": "",
+        "position": "",
         "department": "Operations"
       },
       "type": "half",
@@ -313,7 +154,6 @@
       "hoursImpact": 4,
       "reasonCategory": "Medical",
       "reasonDetails": "I have a scheduled follow-up dental surgery and orthodontic consultation at Makati Medical Center during the morning hours and will report for duty immediately in the afternoon.",
-      "attachment": null,
       "internSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e293b%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e293b%22%3ESofia%20G.%20Reyes%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
       "status": "approved",
       "review": {
@@ -326,7 +166,7 @@
       "history": [
         {
           "status": "submitted",
-          "byUid": "intern-sofia",
+          "byUid": "",
           "byName": "Sofia Gabrielle Reyes",
           "remarks": "Submitted half-day absence request.",
           "at": "2026-11-09T11:20:00+08:00"
@@ -342,28 +182,33 @@
       "createdAt": "2026-11-09T11:15:00+08:00",
       "submittedAt": "2026-11-09T11:20:00+08:00",
       "updatedAt": "2026-11-09T16:40:00+08:00",
-      "templateVersion": "1.0"
+      "templateVersion": "1.0",
+      "memberType": "intern",
+      "accessCode": "R4ZN8W",
+      "memberUids": [],
+      "groupMembers": [],
+      "comments": []
     },
     "req-2026-003": {
       "id": "req-2026-003",
       "refNo": "APG-EL-2026-0043",
-      "uid": "intern-juan",
+      "uid": "",
       "isGroup": true,
       "groupMembers": [
         {
-          "uid": "intern-lord",
+          "uid": null,
           "name": "Lord L. Bartolome",
-          "internId": "APG-INT-2026-002",
-          "position": "IT Associate Intern",
+          "internId": "",
+          "position": "",
           "department": "Information Technology",
           "memberType": "intern",
           "signature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e293b%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e293b%22%3ELord%20L.%20Bartolome%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E"
         },
         {
-          "uid": "intern-aureo",
+          "uid": null,
           "name": "Christopher Joseph V. Aureo",
-          "internId": "APG-INT-2026-003",
-          "position": "IT Associate Intern",
+          "internId": "",
+          "position": "",
           "department": "Information Technology",
           "memberType": "intern",
           "signature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230f172a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230f172a%22%3EChristopher%20Joseph%20V.%20Aureo%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E"
@@ -371,8 +216,8 @@
       ],
       "snapshot": {
         "name": "Prince Lorenz P. Lu-ang",
-        "internId": "APG-INT-2026-001",
-        "position": "IT Associate Intern",
+        "internId": "",
+        "position": "",
         "department": "Information Technology"
       },
       "type": "multi",
@@ -385,7 +230,6 @@
       "hoursImpact": 16,
       "reasonCategory": "School activity",
       "reasonDetails": "Our department is holding its annual graduating batch pre-employment seminar and mock board examination at the university auditorium, which requires full two-day attendance.",
-      "attachment": null,
       "internSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e3a8a%22%3EPrince%20Lorenz%20P.%20Lu-ang%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
       "status": "approved",
       "review": {
@@ -398,7 +242,7 @@
       "history": [
         {
           "status": "submitted",
-          "byUid": "intern-juan",
+          "byUid": "",
           "byName": "Prince Lorenz P. Lu-ang",
           "remarks": "Submitted multi-day group leave request.",
           "at": "2026-11-10T09:15:00+08:00"
@@ -414,16 +258,20 @@
       "createdAt": "2026-11-10T09:05:00+08:00",
       "submittedAt": "2026-11-10T09:15:00+08:00",
       "updatedAt": "2026-11-10T14:30:00+08:00",
-      "templateVersion": "1.0"
+      "templateVersion": "1.0",
+      "memberType": "intern",
+      "accessCode": "H3VP6X",
+      "memberUids": [],
+      "comments": []
     },
     "req-2026-004": {
       "id": "req-2026-004",
       "refNo": null,
-      "uid": "intern-juan",
+      "uid": "",
       "snapshot": {
         "name": "Prince Lorenz P. Lu-ang",
-        "internId": "APG-INT-2026-001",
-        "position": "IT Associate Intern",
+        "internId": "",
+        "position": "",
         "department": "Information Technology"
       },
       "type": "half",
@@ -436,21 +284,20 @@
       "hoursImpact": 4,
       "reasonCategory": "Academic",
       "reasonDetails": "I need to meet with my Faculty Coordinator at the university college dean's office to submit my midterm evaluation forms.",
-      "attachment": null,
       "internSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e3a8a%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e3a8a%22%3EPrince%20Lorenz%20P.%20Lu-ang%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
       "status": "returned",
       "review": {
         "byUid": "hr-chico",
         "byName": "Ms. Jean Ashley Chico",
-        "remarks": "Please specify the exact time of your faculty consultation and confirm whether your afternoon social media scheduling tasks are covered.",
+        "remarks": "Returned with 2 comments on the letter.",
         "at": "2026-11-09T17:05:00+08:00",
         "hrSignature": null
       },
       "history": [
         {
           "status": "submitted",
-          "byUid": "intern-juan",
-          "byName": "Juan Miguel Dela Cruz",
+          "byUid": "",
+          "byName": "Prince Lorenz P. Lu-ang",
           "remarks": "Submitted afternoon leave request.",
           "at": "2026-11-09T14:00:00+08:00"
         },
@@ -458,23 +305,55 @@
           "status": "returned",
           "byUid": "hr-chico",
           "byName": "Ms. Jean Ashley Chico",
-          "remarks": "Please specify the exact time of your faculty consultation and confirm whether your afternoon social media scheduling tasks are covered.",
+          "remarks": "Returned with 2 comments on the letter.",
           "at": "2026-11-09T17:05:00+08:00"
         }
       ],
       "createdAt": "2026-11-09T13:55:00+08:00",
       "submittedAt": "2026-11-09T14:00:00+08:00",
       "updatedAt": "2026-11-09T17:05:00+08:00",
-      "templateVersion": "1.0"
+      "templateVersion": "1.0",
+      "memberType": "intern",
+      "accessCode": "K7Q4MZ",
+      "memberUids": [],
+      "groupMembers": [],
+      "comments": [
+        {
+          "id": "c-seed-1",
+          "block": "opening",
+          "quote": "meet with my Faculty Coordinator",
+          "start": 0,
+          "body": "Please give the exact time of your meeting with your Faculty Coordinator.",
+          "byUid": "hr-chico",
+          "byName": "Ms. Jean Ashley Chico",
+          "at": "2026-11-09T17:03:00+08:00",
+          "sentAt": "2026-11-09T17:05:00+08:00",
+          "resolvedAt": null,
+          "resolvedByName": null
+        },
+        {
+          "id": "c-seed-2",
+          "block": "opening",
+          "quote": "submit my midterm evaluation forms",
+          "start": 0,
+          "body": "Can these forms be submitted online instead? If not, say who covers your afternoon social media scheduling tasks.",
+          "byUid": "hr-chico",
+          "byName": "Ms. Jean Ashley Chico",
+          "at": "2026-11-09T17:04:00+08:00",
+          "sentAt": "2026-11-09T17:05:00+08:00",
+          "resolvedAt": null,
+          "resolvedByName": null
+        }
+      ]
     },
     "req-2026-005": {
       "id": "req-2026-005",
       "refNo": null,
-      "uid": "intern-sofia",
+      "uid": "",
       "snapshot": {
         "name": "Sofia Gabrielle Reyes",
-        "internId": "APG-INT-2026-019",
-        "position": "Operations & Finance Intern",
+        "internId": "",
+        "position": "",
         "department": "Operations"
       },
       "type": "full",
@@ -487,14 +366,13 @@
       "hoursImpact": 8,
       "reasonCategory": "Family emergency",
       "reasonDetails": "I need to accompany my grandmother for her scheduled diagnostic procedure at St. Luke's Medical Center as no other family member is available on that Friday.",
-      "attachment": null,
       "internSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%231e293b%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%231e293b%22%3ESofia%20G.%20Reyes%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
       "status": "submitted",
       "review": null,
       "history": [
         {
           "status": "submitted",
-          "byUid": "intern-sofia",
+          "byUid": "",
           "byName": "Sofia Gabrielle Reyes",
           "remarks": "Submitted full-day absence request.",
           "at": "2026-11-10T10:30:00+08:00"
@@ -503,45 +381,122 @@
       "createdAt": "2026-11-10T10:25:00+08:00",
       "submittedAt": "2026-11-10T10:30:00+08:00",
       "updatedAt": "2026-11-10T10:30:00+08:00",
-      "templateVersion": "1.0"
+      "templateVersion": "1.0",
+      "memberType": "intern",
+      "accessCode": "D8M3JR",
+      "memberUids": [],
+      "groupMembers": [],
+      "comments": []
+    },
+    "req-2026-006": {
+      "refNo": null,
+      "uid": "emp-carlos",
+      "accessCode": null,
+      "memberType": "employee",
+      "snapshot": {
+        "name": "Carlos Eduardo Mendoza",
+        "internId": "APG-EMP-2025-082",
+        "position": "Operations Associate",
+        "department": "Operations"
+      },
+      "type": "full",
+      "date": "2026-11-27",
+      "startDate": null,
+      "endDate": null,
+      "days": 1,
+      "shift": null,
+      "timeRange": null,
+      "hoursImpact": 8,
+      "signatureMethod": "digital",
+      "internSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230c2340%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230c2340%22%3ECarlos%20E.%20Mendoza%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
+      "wetCopyImage": "",
+      "isGroup": false,
+      "groupMembers": [],
+      "memberUids": [
+        "emp-carlos"
+      ],
+      "review": null,
+      "paperCopy": null,
+      "comments": [],
+      "templateVersion": "3.0",
+      "id": "req-2026-006",
+      "reasonCategory": "Personal",
+      "reasonDetails": "I need to process the renewal of my passport at the DFA consular office, and the only available appointment is on that day.",
+      "status": "submitted",
+      "history": [
+        {
+          "status": "submitted",
+          "byUid": "emp-carlos",
+          "byName": "Carlos Eduardo Mendoza",
+          "remarks": "Submitted official absence request.",
+          "at": "2026-11-12T08:40:00+08:00"
+        }
+      ],
+      "createdAt": "2026-11-12T08:35:00+08:00",
+      "submittedAt": "2026-11-12T08:40:00+08:00",
+      "updatedAt": "2026-11-12T08:40:00+08:00"
+    },
+    "req-2026-007": {
+      "refNo": "APG-EL-2026-0040",
+      "uid": "emp-carlos",
+      "accessCode": null,
+      "memberType": "employee",
+      "snapshot": {
+        "name": "Carlos Eduardo Mendoza",
+        "internId": "APG-EMP-2025-082",
+        "position": "Operations Associate",
+        "department": "Operations"
+      },
+      "type": "full",
+      "date": "2026-11-04",
+      "startDate": null,
+      "endDate": null,
+      "days": 1,
+      "shift": null,
+      "timeRange": null,
+      "hoursImpact": 8,
+      "signatureMethod": "digital",
+      "internSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230c2340%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230c2340%22%3ECarlos%20E.%20Mendoza%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E",
+      "wetCopyImage": "",
+      "isGroup": false,
+      "groupMembers": [],
+      "memberUids": [
+        "emp-carlos"
+      ],
+      "review": {
+        "byUid": "hr-chico",
+        "byName": "Ms. Jean Ashley Chico",
+        "remarks": "Approved.",
+        "at": "2026-11-02T11:00:00+08:00",
+        "hrSignature": "data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22260%22%20height%3D%2275%22%20viewBox%3D%220%200%20260%2075%22%3E%0A%20%20%20%20%3Cpath%20d%3D%22M18%2052%20Q%2045%2012%2C%2072%2044%20T%20130%2035%20T%20195%2045%20Q%20220%2050%2C%20242%2026%22%20fill%3D%22none%22%20stroke%3D%22%230c2340%22%20stroke-width%3D%222.4%22%20stroke-linecap%3D%22round%22%20opacity%3D%220.85%22%2F%3E%0A%20%20%20%20%3Ctext%20x%3D%2224%22%20y%3D%2248%22%20font-family%3D%22Georgia%2C%20serif%22%20font-size%3D%2222%22%20font-style%3D%22italic%22%20fill%3D%22%230c2340%22%3EJean%20Ashley%20Chico%3C%2Ftext%3E%0A%20%20%3C%2Fsvg%3E"
+      },
+      "paperCopy": null,
+      "comments": [],
+      "templateVersion": "3.0",
+      "id": "req-2026-007",
+      "reasonCategory": "Medical",
+      "reasonDetails": "I have a scheduled annual medical check-up required by my health insurance provider.",
+      "status": "approved",
+      "history": [
+        {
+          "status": "submitted",
+          "byUid": "emp-carlos",
+          "byName": "Carlos Eduardo Mendoza",
+          "remarks": "Submitted official absence request.",
+          "at": "2026-11-02T09:00:00+08:00"
+        },
+        {
+          "status": "approved",
+          "byUid": "hr-chico",
+          "byName": "Ms. Jean Ashley Chico",
+          "remarks": "Approved.",
+          "at": "2026-11-02T11:00:00+08:00"
+        }
+      ],
+      "createdAt": "2026-11-02T08:50:00+08:00",
+      "submittedAt": "2026-11-02T09:00:00+08:00",
+      "updatedAt": "2026-11-02T11:00:00+08:00"
     }
   },
-  "absenceSlots": {
-    "intern-juan_2026-11-05_am": {
-      "requestId": "req-2026-001",
-      "uid": "intern-juan"
-    },
-    "intern-juan_2026-11-05_pm": {
-      "requestId": "req-2026-001",
-      "uid": "intern-juan"
-    },
-    "intern-sofia_2026-11-12_am": {
-      "requestId": "req-2026-002",
-      "uid": "intern-sofia"
-    },
-    "intern-juan_2026-11-18_am": {
-      "requestId": "req-2026-003",
-      "uid": "intern-juan"
-    },
-    "intern-juan_2026-11-18_pm": {
-      "requestId": "req-2026-003",
-      "uid": "intern-juan"
-    },
-    "intern-juan_2026-11-19_am": {
-      "requestId": "req-2026-003",
-      "uid": "intern-juan"
-    },
-    "intern-juan_2026-11-19_pm": {
-      "requestId": "req-2026-003",
-      "uid": "intern-juan"
-    },
-    "intern-sofia_2026-11-20_am": {
-      "requestId": "req-2026-005",
-      "uid": "intern-sofia"
-    },
-    "intern-sofia_2026-11-20_pm": {
-      "requestId": "req-2026-005",
-      "uid": "intern-sofia"
-    }
-  }
+  "absenceSlots": {}
 }

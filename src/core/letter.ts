@@ -1,12 +1,14 @@
 /**
  * The words of the 2026 "Notice of Absence" letter, as plain data, so the
  * React letter only lays them out. Interns and employees each have a format
- * (HR's NEW FORMATTING samples): the request's memberType picks it.
+ * (HR's NEW FORMATTING samples): the request's memberType picks it. The
+ * wording is fixed; HR's settings only say who is listed under "Noted by".
  */
 
+import { DEFAULT_FORMATS } from './db';
 import { addDaysYmd, countWeekdays, parseLocalDate, toYmd, todayYmd } from './dates';
 import { DEFAULT_TIME_RANGE, isGroupRequest } from './requests';
-import type { AbsenceRequest, FormatWording, LetterSettings } from './types';
+import type { AbsenceRequest, FormatWording, LetterSettings, NotedBy } from './types';
 
 /** "November 05, 2026": the new letters pad the day. */
 export function formatLetterDate(ymd: string | null | undefined): string {
@@ -32,8 +34,17 @@ export function letterDateYmd(req: Pick<AbsenceRequest, 'submittedAt' | 'created
   return Number.isNaN(dt.getTime()) ? todayYmd(now) : toYmd(dt);
 }
 
-export function wordingFor(req: Pick<AbsenceRequest, 'memberType'>, settings: LetterSettings): FormatWording {
-  return settings.formats[req.memberType === 'employee' ? 'employee' : 'intern'];
+export function wordingFor(req: Pick<AbsenceRequest, 'memberType'>): FormatWording {
+  return DEFAULT_FORMATS[req.memberType === 'employee' ? 'employee' : 'intern'];
+}
+
+export function notedByFor(req: Pick<AbsenceRequest, 'memberType'>, settings: LetterSettings): readonly NotedBy[] {
+  return settings.notedBy[req.memberType === 'employee' ? 'employee' : 'intern'];
+}
+
+/** Whether this "Noted by" line gets HR's signature in the app: the HR officer's. The others sign the printed copy. */
+export function signsInApp(n: NotedBy, settings: LetterSettings): boolean {
+  return n.name.trim() === settings.signatoryName.trim();
 }
 
 /** A run of letter text. `typed` came from the form (the preview marks it); `placeholder` stands in for something not filled in yet. */

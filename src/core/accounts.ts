@@ -1,10 +1,12 @@
 /**
- * Signing in, registering, HR's edits to people and to the letter settings.
+ * Signing in, registering, and HR's letter settings.
+ *
+ * Only employees and HR have accounts. Interns file through the intern form
+ * without one (src/core/requests.ts, filer null).
  */
 
 import { TEMP_ACCOUNTS, type TempAccount } from '@/config';
-import { DEFAULT_FORMATS } from './db';
-import { LETTER_FORMAT_VERSION, type Db, type FormatWording, type LetterSettings, type MemberType, type Outcome, type Role, type User, type UserStatus } from './types';
+import { LETTER_FORMAT_VERSION, type Db, type LetterSettings, type MemberType, type NotedBy, type Outcome, type User } from './types';
 
 export type SignInMode = 'member' | 'admin';
 
@@ -13,19 +15,21 @@ export async function hashPassword(password: string): Promise<string> {
   return `sha256:${Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')}`;
 }
 
-const MEMBER_ALIASES = ['demo', 'intern', 'demo@intern.com', 'intern@demo.com'];
+const MEMBER_ALIASES = ['demo', 'employee', 'demo@employee.com', 'employee@demo.com'];
 const ADMIN_ALIASES = ['admin', 'hr', 'demo@admin.com', 'admin@demo.com'];
 
-/** The account an email means: a test account, an alias for one ("admin", "intern"), or a registered person. */
+/** The account an email means: a test account, an alias for one ("admin", "employee"), or a registered person. */
 export function findAccount(db: Db, emailIn: string, mode: SignInMode, temp: readonly TempAccount[] = TEMP_ACCOUNTS): { user: User | null; temp: TempAccount | null } {
   let email = emailIn.trim().toLowerCase();
-  const aliasRole = mode === 'member' && MEMBER_ALIASES.includes(email) ? 'intern' : mode === 'admin' && ADMIN_ALIASES.includes(email) ? 'hr' : null;
+  const aliasRole = mode === 'member' && MEMBER_ALIASES.includes(email) ? 'employee' : mode === 'admin' && ADMIN_ALIASES.includes(email) ? 'hr' : null;
   const alias = aliasRole ? temp.find((a) => a.role === aliasRole) : undefined;
   if (alias) email = alias.email.toLowerCase();
   const t = temp.find((a) => a.email.toLowerCase() === email) ?? null;
   const user = t ? db.users[t.uid] ?? null : Object.values(db.users).find((u) => u.email.toLowerCase() === email) ?? null;
   return { user, temp: t };
 }
+
+export const INTERN_NO_ACCOUNT = "Interns don't sign in. Use the intern absence form on the home screen instead.";
 
 /** The signed-in person, or why not. Same message for an unknown email and a wrong password. */
 export async function signIn(db: Db, email: string, password: string, mode: SignInMode, temp: readonly TempAccount[] = TEMP_ACCOUNTS): Promise<{ ok: true; user: User } | { ok: false; error: string }> {
@@ -37,8 +41,9 @@ export async function signIn(db: Db, email: string, password: string, mode: Sign
       : Boolean(user.passwordHash) && (await hashPassword(password)) === user.passwordHash
     : false;
   if (!user || !passwordOk) return { ok: false, error: 'Incorrect email or password.' };
-  if (mode === 'admin' && user.role !== 'hr') return { ok: false, error: 'This account is not an admin. Use "Answer Absence Form" instead.' };
-  if (mode === 'member' && user.role === 'hr') return { ok: false, error: 'Admin accounts sign in through "Login as Admin".' };
+  if (mode === 'admin' && user.role !== 'hr') return { ok: false, error: 'This account is not an admin. Use "Employee sign-in" instead.' };
+  if (mode === 'member' && user.role === 'hr') return { ok: false, error: 'Admin accounts sign in through "Login as admin".' };
+  if (mode === 'member' && user.role === 'intern') return { ok: false, error: INTERN_NO_ACCOUNT };
   if (user.status === 'disabled') return { ok: false, error: 'This account has been disabled. Please contact HR.' };
   return { ok: true, user };
 }
@@ -47,10 +52,12 @@ export interface Registration {
   readonly name: string;
   readonly email: string;
   readonly password: string;
-  readonly memberType: MemberType;
 }
 
-/** A new intern or employee account, active at once with a starting ID and position HR can change. */
+/**
+ * A new employee account, active at once. Position and department aren't
+ * part of the account: the employee types them on each letter.
+ */
 export async function register(db: Db, reg: Registration, now: Date, temp: readonly TempAccount[] = TEMP_ACCOUNTS): Promise<Outcome<{ user: User }>> {
   const name = reg.name.trim();
   const email = reg.email.trim();
@@ -61,17 +68,15 @@ export async function register(db: Db, reg: Registration, now: Date, temp: reado
   if (Object.values(db.users).some((u) => u.email.toLowerCase() === lower) || temp.some((a) => a.email.toLowerCase() === lower)) {
     return { ok: false, error: 'An account with that email already exists. Please sign in instead.' };
   }
-  const employee = reg.memberType === 'employee';
-  const seq = String(Math.floor(Math.random() * 80 + 10));
   const user: User = {
-    uid: `${reg.memberType}-${now.getTime()}`,
+    uid: `employee-${now.getTime()}`,
     name,
     email,
-    internId: employee ? `APG-EMP-${now.getFullYear()}-0${seq}` : `APG-INT-${now.getFullYear()}-0${seq}`,
-    position: employee ? 'Operations Associate' : 'IT Associate Intern',
-    department: employee ? 'Operations' : 'Information Technology',
-    role: reg.memberType,
-    memberType: reg.memberType,
+    internId: '',
+    position: '',
+    department: '',
+    role: 'employee',
+    memberType: 'employee',
     status: 'active',
     savedSignature: '',
     passwordHash: await hashPassword(reg.password),
@@ -80,58 +85,22 @@ export async function register(db: Db, reg: Registration, now: Date, temp: reado
   return { ok: true, value: { user }, message: `Welcome, ${name}! Your account is active.`, changes: { users: [user] } };
 }
 
-export interface MemberEdit {
-  readonly role: Exclude<Role, 'hr'>;
-  readonly internId: string;
-  readonly position: string;
-  readonly department: string;
-  readonly status: UserStatus;
-}
-
-export function updateMember(db: Db, hr: User, uid: string, edit: MemberEdit): Outcome {
-  const u = db.users[uid];
-  if (!u || hr.role !== 'hr' || u.role === 'hr') return { ok: false, error: 'Only HR can change members.' };
-  const internId = edit.internId.trim();
-  const position = edit.position.trim();
-  const department = edit.department.trim();
-  if (edit.status === 'active' && (!internId || !position || !department)) {
-    return { ok: false, error: 'Assign an ID number, official position and department to activate this member.' };
-  }
-  const updated: User = { ...u, role: edit.role, memberType: edit.role, internId, position, department, status: edit.status };
-  return { ok: true, value: undefined, message: `Updated ${u.name} (${edit.status}).`, changes: { users: [updated] } };
-}
-
+/** What HR edits in Settings → Letter. The wording itself is fixed (DEFAULT_FORMATS). */
 export type LetterSettingsInput = Omit<LetterSettings, 'templateVersion' | 'formatVersion'>;
 
-function cleanFormat(f: FormatWording, d: FormatWording): FormatWording {
-  return {
-    salutation: f.salutation.trim(),
-    apologyParagraph: f.apologyParagraph.trim(),
-    apologyParagraphGroup: f.apologyParagraphGroup.trim() || d.apologyParagraphGroup,
-    thankYouParagraph: f.thankYouParagraph.trim(),
-    thankYouParagraphGroup: f.thankYouParagraphGroup.trim() || d.thankYouParagraphGroup,
-    closing: f.closing.trim(),
-    notedBy: f.notedBy.map((n) => ({ name: n.name.trim(), title: n.title.trim() })).filter((n) => n.name),
-  };
-}
+const cleanNotedBy = (list: readonly NotedBy[]): NotedBy[] => list.map((n) => ({ name: n.name.trim(), title: n.title.trim() })).filter((n) => n.name);
 
-/** Saves HR's letter wording; each save is a new template version (2.0 → 2.1). */
+/** Saves HR's letter settings; each save is a new template version (3.0 → 3.1). */
 export function saveLetterSettings(db: Db, hr: User, next: LetterSettingsInput): Outcome<{ version: string }> {
   if (hr.role !== 'hr') return { ok: false, error: 'Only HR can change the letter.' };
   const general = [next.signatoryName, next.signatoryTitle, next.companyName, next.subject];
   if (general.some((v) => !v.trim())) return { ok: false, error: 'Fill in the HR officer, title, company and subject.' };
-  const formats = {
-    intern: cleanFormat(next.formats.intern, DEFAULT_FORMATS.intern),
-    employee: cleanFormat(next.formats.employee, DEFAULT_FORMATS.employee),
-  };
-  for (const [label, f] of [['intern', formats.intern], ['employee', formats.employee]] as const) {
-    if (![f.salutation, f.apologyParagraph, f.thankYouParagraph, f.closing].every(Boolean)) {
-      return { ok: false, error: `Fill in every part of the ${label} letter.` };
-    }
-    if (f.notedBy.length === 0) return { ok: false, error: `List at least one person under "Noted by" on the ${label} letter.` };
+  const notedBy: Record<MemberType, NotedBy[]> = { intern: cleanNotedBy(next.notedBy.intern), employee: cleanNotedBy(next.notedBy.employee) };
+  for (const type of ['intern', 'employee'] as const) {
+    if (notedBy[type].length === 0) return { ok: false, error: `List at least one person under "Noted by" on the ${type} letter.` };
   }
   const [major, minor] = db.settings.letter.templateVersion.split('.');
-  const version = `${major ?? '2'}.${Number(minor ?? 0) + 1}`;
+  const version = `${major ?? '3'}.${Number(minor ?? 0) + 1}`;
   const letter: LetterSettings = {
     ...db.settings.letter,
     ...next,
@@ -140,7 +109,7 @@ export function saveLetterSettings(db: Db, hr: User, next: LetterSettingsInput):
     signatoryTitle: next.signatoryTitle.trim(),
     companyName: next.companyName.trim(),
     subject: next.subject.trim(),
-    formats,
+    notedBy,
     templateVersion: version,
   };
   return { ok: true, value: { version }, message: `Letter settings saved (template v${version}).`, changes: { settings: { letter } } };

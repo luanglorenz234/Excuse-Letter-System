@@ -5,15 +5,17 @@ import type {
   Db,
   FormatWording,
   GroupMember,
+  LetterComment,
   LetterSettings,
   MemberType,
+  NotedBy,
   Settings,
   Slot,
   User,
 } from './types';
-import { LETTER_FORMAT_VERSION } from './types';
+import { LETTER_BLOCKS, LETTER_FORMAT_VERSION } from './types';
 
-/** The two formats as HR's 2026 "Notice of Absence" letters word them. */
+/** The two formats as HR's 2026 "Notice of Absence" letters word them. Fixed: HR doesn't edit the wording. */
 export const DEFAULT_FORMATS: Readonly<Record<MemberType, FormatWording>> = {
   intern: {
     salutation: 'Good day,',
@@ -24,7 +26,6 @@ export const DEFAULT_FORMATS: Readonly<Record<MemberType, FormatWording>> = {
     thankYouParagraph: 'Thank you for your kind consideration.',
     thankYouParagraphGroup: 'Thank you for your kind consideration.',
     closing: 'Respectfully,',
-    notedBy: [{ name: 'Ms. Jean Ashley S. Chico', title: 'HR Officer' }],
   },
   employee: {
     salutation: 'Dear Ma’am Jean:',
@@ -35,12 +36,21 @@ export const DEFAULT_FORMATS: Readonly<Record<MemberType, FormatWording>> = {
     thankYouParagraph: 'Thank you for your kind understanding and consideration.',
     thankYouParagraphGroup: 'Thank you for your kind understanding and consideration.',
     closing: 'Very respectfully yours,',
-    notedBy: [
-      { name: 'Mr. Mark Anthony Santos', title: 'CEO' },
-      { name: 'Ms. Jean Ashley S. Chico', title: 'HR Officer' },
-      { name: 'Ms. Ma. Beatriz B. Conos', title: 'HR / Marketing Officer' },
-    ],
   },
+};
+
+/**
+ * Who notes each format. Interns: the HR officer. Employees: the CEO, the HR
+ * officer and the HR / Marketing officer; only the HR officer signs in the app,
+ * the other two sign the printed copy.
+ */
+export const DEFAULT_NOTED_BY: Readonly<Record<MemberType, readonly NotedBy[]>> = {
+  intern: [{ name: 'Ms. Jean Ashley S. Chico', title: 'HR Officer' }],
+  employee: [
+    { name: 'Mr. Mark Anthony Santos', title: 'CEO' },
+    { name: 'Ms. Jean Ashley S. Chico', title: 'HR Officer' },
+    { name: 'Ms. Ma. Beatriz B. Conos', title: 'HR / Marketing Officer' },
+  ],
 };
 
 export const DEFAULT_LETTER_TEXT = {
@@ -80,6 +90,26 @@ function normalizeMember(m: Loose): GroupMember {
   };
 }
 
+function normalizeComment(c: Loose): LetterComment | null {
+  const block = LETTER_BLOCKS.find((b) => b === c.block);
+  const id = str(c.id);
+  const quote = str(c.quote);
+  if (!block || !id || !quote) return null;
+  return {
+    id,
+    block,
+    quote,
+    start: typeof c.start === 'number' && c.start >= 0 ? c.start : 0,
+    body: str(c.body),
+    byUid: str(c.byUid),
+    byName: str(c.byName),
+    at: str(c.at),
+    sentAt: strOrNull(c.sentAt),
+    resolvedAt: strOrNull(c.resolvedAt),
+    resolvedByName: strOrNull(c.resolvedByName),
+  };
+}
+
 /** Fills in what older saved data (or seed.json) leaves out, so the rest of the app can rely on every field. */
 export function normalizeRequest(raw: Loose): AbsenceRequest {
   const snapshot = (raw.snapshot ?? {}) as Loose;
@@ -93,6 +123,7 @@ export function normalizeRequest(raw: Loose): AbsenceRequest {
     id: str(raw.id),
     refNo: strOrNull(raw.refNo),
     uid,
+    accessCode: strOrNull(raw.accessCode),
     memberType: raw.memberType === 'employee' ? 'employee' : 'intern',
     snapshot: {
       name: str(snapshot.name),
@@ -120,6 +151,7 @@ export function normalizeRequest(raw: Loose): AbsenceRequest {
     review: (raw.review as AbsenceRequest['review']) ?? null,
     paperCopy: (raw.paperCopy as AbsenceRequest['paperCopy']) ?? null,
     history: Array.isArray(raw.history) ? (raw.history as AbsenceRequest['history']) : [],
+    comments: Array.isArray(raw.comments) ? (raw.comments as Loose[]).map(normalizeComment).filter((c): c is LetterComment => c !== null) : [],
     createdAt: str(raw.createdAt, new Date().toISOString()),
     submittedAt: strOrNull(raw.submittedAt),
     updatedAt: str(raw.updatedAt, str(raw.createdAt, new Date().toISOString())),
@@ -145,43 +177,38 @@ export function normalizeUser(raw: Loose): User {
   };
 }
 
-function normalizeFormat(raw: unknown, d: FormatWording): FormatWording {
-  const f = (raw ?? {}) as Loose;
-  const notedBy = Array.isArray(f.notedBy)
-    ? (f.notedBy as Loose[]).map((n) => ({ name: str(n?.name).trim(), title: str(n?.title).trim() })).filter((n) => n.name)
+function normalizeNotedBy(raw: unknown, d: readonly NotedBy[]): readonly NotedBy[] {
+  const list = Array.isArray(raw)
+    ? (raw as Loose[]).map((n) => ({ name: str(n?.name).trim(), title: str(n?.title).trim() })).filter((n) => n.name)
     : [];
-  return {
-    salutation: str(f.salutation) || d.salutation,
-    apologyParagraph: str(f.apologyParagraph) || d.apologyParagraph,
-    apologyParagraphGroup: str(f.apologyParagraphGroup) || d.apologyParagraphGroup,
-    thankYouParagraph: str(f.thankYouParagraph) || d.thankYouParagraph,
-    thankYouParagraphGroup: str(f.thankYouParagraphGroup) || d.thankYouParagraphGroup,
-    closing: str(f.closing) || d.closing,
-    notedBy: notedBy.length > 0 ? notedBy : d.notedBy,
-  };
+  return list.length > 0 ? list : d;
 }
 
 /**
- * Settings saved before the 2026 letter format (no formatVersion) had one
- * wording for everyone; they move to the new formats' wording, keeping HR's
- * approval signature and the attachments switch.
+ * Settings in any earlier shape move to the current one, keeping HR's approval
+ * signature and the attachments switch:
+ *   - before the 2026 format (no formatVersion): one wording for everyone, all dropped;
+ *   - format 2: editable wording per format, of which only "Noted by" is kept;
+ *   - format 3: the wording is fixed in DEFAULT_FORMATS, HR keeps "Noted by".
  */
 export function normalizeSettings(raw: unknown): Settings {
   const letter = ((raw as Loose | null)?.letter ?? {}) as Loose;
-  const current = letter.formatVersion === LETTER_FORMAT_VERSION;
-  const formats = (current ? letter.formats : null) as Loose | null;
+  const version = typeof letter.formatVersion === 'number' ? letter.formatVersion : 1;
+  const known = version >= 2;
+  const notedBy = (version >= 3 ? letter.notedBy : version === 2 ? { intern: (letter.formats as Loose | undefined)?.intern, employee: (letter.formats as Loose | undefined)?.employee } : null) as Loose | null;
+  const notedFor = (type: MemberType) => (version >= 3 ? notedBy?.[type] : (notedBy?.[type] as Loose | undefined)?.notedBy);
   const l: LetterSettings = {
     formatVersion: LETTER_FORMAT_VERSION,
-    signatoryName: (current && str(letter.signatoryName)) || DEFAULT_LETTER_TEXT.signatoryName,
-    signatoryTitle: (current && str(letter.signatoryTitle)) || DEFAULT_LETTER_TEXT.signatoryTitle,
-    companyName: (current && str(letter.companyName)) || DEFAULT_LETTER_TEXT.companyName,
-    subject: (current && str(letter.subject)) || DEFAULT_LETTER_TEXT.subject,
-    formats: {
-      intern: normalizeFormat(formats?.intern, DEFAULT_FORMATS.intern),
-      employee: normalizeFormat(formats?.employee, DEFAULT_FORMATS.employee),
+    signatoryName: (known && str(letter.signatoryName)) || DEFAULT_LETTER_TEXT.signatoryName,
+    signatoryTitle: (known && str(letter.signatoryTitle)) || DEFAULT_LETTER_TEXT.signatoryTitle,
+    companyName: (known && str(letter.companyName)) || DEFAULT_LETTER_TEXT.companyName,
+    subject: (known && str(letter.subject)) || DEFAULT_LETTER_TEXT.subject,
+    notedBy: {
+      intern: normalizeNotedBy(notedFor('intern'), DEFAULT_NOTED_BY.intern),
+      employee: normalizeNotedBy(notedFor('employee'), DEFAULT_NOTED_BY.employee),
     },
     hrSignature: str(letter.hrSignature),
-    templateVersion: current ? str(letter.templateVersion, '2.0') : '2.0',
+    templateVersion: version >= 3 ? str(letter.templateVersion, '3.0') : '3.0',
     attachmentsEnabled: Boolean(letter.attachmentsEnabled),
   };
   return { letter: l };

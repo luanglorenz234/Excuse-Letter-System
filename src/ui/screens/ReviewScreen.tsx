@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { addComment, deleteComment, editComment, newCommentId, openComments, resolveComments } from '@/core/comments';
 import { formatShortDate } from '@/core/dates';
-import { decideRequest, isAwaitingPaperCopy, isGroupRequest, namesShort, requestMembers, setPaperCopy, type Decision } from '@/core/requests';
+import { notedByFor, signsInApp } from '@/core/letter';
+import { decideRequest, filerKey, formatAccessCode, isAwaitingPaperCopy, isGroupRequest, namesShort, requestMembers, setPaperCopy, type Decision } from '@/core/requests';
 import type { AbsenceRequest, Db } from '@/core/types';
 import { Button, Card, EmptyState, Notice, Pill } from '../components';
-import { ScaledLetter, safeImageSrc } from '../letter/Letter';
+import { safeImageSrc } from '../letter/Letter';
+import { LetterComments } from '../letter/LetterComments';
 import { printLetter } from '../letter/print';
 import { PageHeader } from '../App';
 import { useApp, useUser } from '../state/AppState';
@@ -29,9 +32,11 @@ export function referenceSignatures(db: Db, req: AbsenceRequest): { src: string;
       refs.push({ src: safe, label });
     }
   };
-  add(db.users[req.uid]?.savedSignature, 'Saved on profile');
+  if (req.uid) add(db.users[req.uid]?.savedSignature, 'Saved on profile');
+  // The same person's earlier letters: by account, or for an intern (no account) by name.
+  const who = filerKey(req);
   Object.values(db.requests)
-    .filter((r) => r.uid === req.uid && r.id !== req.id && r.status !== 'draft' && r.signatureMethod === 'digital')
+    .filter((r) => filerKey(r) === who && r.id !== req.id && r.status !== 'draft' && r.signatureMethod === 'digital')
     .sort((a, b) => (b.submittedAt ?? '').localeCompare(a.submittedAt ?? ''))
     .forEach((r) => {
       if (refs.length < 4) add(r.internSignature, `Request ${formatShortDate(r.submittedAt ?? r.createdAt)}`);
@@ -46,13 +51,17 @@ export function ReviewScreen() {
   const { id = '' } = useParams();
   const req = app.db.requests[id];
   const [remarks, setRemarks] = useState('');
-  const [busy, setBusy] = useState<Decision | 'paper' | null>(null);
+  const [busy, setBusy] = useState<Decision | 'paper' | 'resolve' | null>(null);
   const [photo, setPhoto] = useState(false);
+  const [showResolved, setShowResolved] = useState(false);
 
-  const others = useMemo(
-    () => (req ? Object.values(app.db.requests).filter((r) => r.uid === req.uid && r.id !== req.id && r.status !== 'draft').sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)) : []),
-    [app.db.requests, req],
-  );
+  const others = useMemo(() => {
+    if (!req) return [];
+    const who = filerKey(req);
+    return Object.values(app.db.requests)
+      .filter((r) => filerKey(r) === who && r.id !== req.id && r.status !== 'draft')
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  }, [app.db.requests, req]);
 
   if (!req) {
     return (
@@ -73,6 +82,31 @@ export function ReviewScreen() {
 
   const waiting = req.status === 'submitted';
   const paperPending = isAwaitingPaperCopy(req);
+  const open = openComments(req);
+  const openSent = open.filter((c) => c.sentAt).length;
+  const resolvedCount = req.comments.length - open.length;
+  const shownComments = showResolved ? req.comments : open;
+  // On the employee letter the CEO and Marketing sign the printed copy by hand.
+  const signByHand = notedByFor(req, app.db.settings.letter).filter((n) => !signsInApp(n, app.db.settings.letter));
+
+  const run = (outcome: Parameters<typeof app.run>[0]) => app.run(outcome);
+  const commentHandlers = waiting
+    ? {
+        onAdd: (c: Parameters<typeof addComment>[3]) => {
+          const now = new Date();
+          return run(addComment(app.db, hr, req.id, c, now, newCommentId(now)));
+        },
+        onEdit: (id: string, body: string) => run(editComment(app.db, hr, req.id, id, body, new Date())),
+        onDelete: (id: string) => run(deleteComment(app.db, hr, req.id, id, new Date())),
+        onResolve: (id: string, resolved: boolean) => run(resolveComments(app.db, hr, req.id, [id], resolved, new Date())),
+      }
+    : {};
+
+  const resolveAll = async () => {
+    setBusy('resolve');
+    await app.run(resolveComments(app.db, hr, req.id, null, true, new Date()));
+    setBusy(null);
+  };
 
   const decide = async (decision: Decision) => {
     setBusy(decision);
@@ -109,14 +143,33 @@ export function ReviewScreen() {
         }
       />
 
-      <div className="workspace">
+      <div className="workspace workspace--review">
         <div className="stack">
           {waiting ? (
-            <Card title="Decision" description="Approving adds the reference number and your signature. Returning or declining needs remarks the member will see.">
+            <Card
+              title="Decision"
+              description="Approving adds the reference number and your signature. To ask for changes, comment on the letter (select words on it) and return it."
+            >
               <div className="stack">
                 {paperPending ? (
                   <Notice tone="warn" title="Waiting for the paper copy">
                     Mark the hand-signed paper copy as received before approving.
+                  </Notice>
+                ) : null}
+                {open.length > 0 ? (
+                  <Notice
+                    tone="info"
+                    title={`${open.length} open comment${open.length === 1 ? '' : 's'} on the letter`}
+                    action={
+                      openSent > 0 ? (
+                        <Button size="small" variant="ghost" busy={busy === 'resolve'} disabled={busy !== null} onClick={() => void resolveAll()}>
+                          Resolve all
+                        </Button>
+                      ) : undefined
+                    }
+                  >
+                    {openSent < open.length ? 'Return the letter to send your new comments, or delete them to approve instead. ' : null}
+                    {openSent > 0 ? 'Resolve the ones the member has fixed before approving.' : null}
                   </Notice>
                 ) : null}
                 <div className="field">
@@ -129,11 +182,11 @@ export function ReviewScreen() {
                     rows={3}
                     value={remarks}
                     onChange={(e) => setRemarks(e.target.value)}
-                    placeholder="Optional when approving. Say what to fix when returning."
+                    placeholder="Optional when approving, or when returning with comments on the letter."
                   />
                 </div>
                 <div className="row">
-                  <Button variant="primary" busy={busy === 'approved'} disabled={busy !== null || paperPending} onClick={() => void decide('approved')}>
+                  <Button variant="primary" busy={busy === 'approved'} disabled={busy !== null || paperPending || open.length > 0} onClick={() => void decide('approved')}>
                     Approve
                   </Button>
                   <Button variant="ghost" busy={busy === 'returned'} disabled={busy !== null} onClick={() => void decide('returned')}>
@@ -156,6 +209,11 @@ export function ReviewScreen() {
                     "{req.review.remarks}" <span className="muted">— {req.review.byName}, {formatShortDate(req.review.at)}</span>
                   </p>
                 ) : null}
+                {req.status === 'approved' && signByHand.length > 0 ? (
+                  <Notice tone="info" title="Still to sign by hand">
+                    Print this letter for {signByHand.map((n) => n.title || n.name).join(' and ')} to sign. Only your signature is added in the app.
+                  </Notice>
+                ) : null}
               </div>
             </Card>
           )}
@@ -165,9 +223,12 @@ export function ReviewScreen() {
           <Card title="Details">
             <dl className="details">
               <Detail label="Name" value={req.snapshot.name} />
-              <Detail label="ID number" value={req.snapshot.internId} />
-              <Detail label="Member type" value={req.memberType === 'employee' ? 'Employee' : 'Intern'} />
-              <Detail label="Position" value={req.snapshot.position} />
+              <Detail
+                label="Filed by"
+                value={req.accessCode ? `Intern form (no account) · code ${formatAccessCode(req.accessCode)}` : req.memberType === 'employee' ? 'Employee account' : 'Intern account'}
+              />
+              {req.snapshot.internId ? <Detail label="ID number" value={req.snapshot.internId} /> : null}
+              {req.memberType === 'employee' ? <Detail label="Position" value={req.snapshot.position} /> : null}
               <Detail label="Department" value={req.snapshot.department || '—'} />
               <Detail label="Reason" value={req.reasonCategory} />
               <Detail label="Date(s)" value={datesText(req)} />
@@ -181,8 +242,9 @@ export function ReviewScreen() {
                     <li key={`${m.uid ?? 'x'}-${i}`}>
                       {m.name}
                       {m.position ? ` · ${m.position}` : ''}
+                      {m.department ? ` · ${m.department}` : ''}
                       {m.internId ? ` · ${m.internId}` : ''}
-                      {m.isFiler ? <em className="muted"> (filed the request)</em> : m.uid ? null : <em className="muted"> (no account)</em>}
+                      {m.isFiler ? <em className="muted"> (filed the request)</em> : m.uid || req.accessCode ? null : <em className="muted"> (no account)</em>}
                     </li>
                   ))}
                 </ul>
@@ -229,7 +291,29 @@ export function ReviewScreen() {
             <span>Template v{req.templateVersion}</span>
           </div>
           <div className="preview__stage">
-            <ScaledLetter request={req} settings={app.db.settings.letter} highlight={false} />
+            <LetterComments
+              request={req}
+              settings={app.db.settings.letter}
+              comments={shownComments}
+              viewer="hr"
+              emptyText={resolvedCount > 0 ? 'No open comments.' : undefined}
+              toolbar={
+                req.comments.length > 0 || waiting ? (
+                  <span className="row row--tight small">
+                    <strong>Comments</strong>
+                    <span className="muted">
+                      {open.length} open{resolvedCount > 0 ? ` · ${resolvedCount} resolved` : ''}
+                    </span>
+                    {resolvedCount > 0 ? (
+                      <Button size="small" variant="link" onClick={() => setShowResolved((v) => !v)}>
+                        {showResolved ? 'Hide resolved' : 'Show resolved'}
+                      </Button>
+                    ) : null}
+                  </span>
+                ) : null
+              }
+              {...commentHandlers}
+            />
           </div>
         </div>
       </div>

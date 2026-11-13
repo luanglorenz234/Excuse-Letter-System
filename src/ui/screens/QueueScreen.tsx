@@ -129,7 +129,9 @@ export function QueueScreen() {
                       <td>
                         <div className="cell-main">{namesShort(r)}</div>
                         <div className="cell-sub" title={namesAll(r)}>
-                          {isGroupRequest(r) ? `Group of ${requestMembers(r).length}` : `${r.snapshot.position} · ${r.snapshot.internId}`}
+                          {[r.memberType === 'employee' ? 'Employee' : 'Intern', isGroupRequest(r) ? `group of ${requestMembers(r).length}` : r.snapshot.position || r.snapshot.department]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
                       </td>
                       <td>
