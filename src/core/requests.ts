@@ -1,14 +1,15 @@
 /**
  * Every rule about a request: who is on it, which half-days it takes, the
- * duplicate guard, saving, editing, withdrawing and HR's decision. Pure
- * functions: each takes the Db and returns the changes to save, so the rules
- * can move to a Cloud Function later as they are.
+ * duplicate guard, saving, revising, withdrawing and HR's decision. Pure
+ * functions: each takes the Db and returns the changes to save. The server
+ * (src/server/handlers.ts) runs them on the documents an action needs.
  *
- * Two kinds of filer: an employee signed in to their account, and an intern
- * with no account (filer null), who gets a code to open the letter again.
+ * Nobody files from an account: interns and employees fill in the absence
+ * form, and each letter gets a code to open it again.
  */
 
 import { openComments, sendComments } from './comments';
+import { isHrOfficer } from './settings';
 import { countWeekdays, currentYear, formatShortDate, minFilingDate, weekdaysBetween } from './dates';
 import {
   MAX_GROUP_SIZE,
@@ -25,7 +26,6 @@ import {
   type Shift,
   type SignatureMethod,
   type Slot,
-  type Snapshot,
   type User,
 } from './types';
 
@@ -72,10 +72,6 @@ export function requestUids(req: RequestLike): string[] {
   return [...new Set(requestMembers(req).map((m) => m.uid).filter((u): u is string => Boolean(u)))];
 }
 
-export function includesUser(req: RequestLike, uid: string): boolean {
-  return requestUids(req).includes(uid);
-}
-
 /** "Juan Dela Cruz" or "Juan Dela Cruz + 2 others". */
 export function namesShort(req: RequestLike): string {
   const members = requestMembers(req);
@@ -94,8 +90,8 @@ export function namesAll(req: RequestLike): string {
 // ---- half-day slots and the duplicate guard ---------------------------------
 
 /**
- * Who a half-day belongs to: the account, or for someone with no account
- * (every intern), their name: "name:prince-lorenz-p-lu-ang". '' for no name yet.
+ * Who a half-day belongs to: their name, "name:prince-lorenz-p-lu-ang" (the
+ * account's uid on older letters filed from one). '' for no name yet.
  */
 export function personKey(m: { readonly uid: string | null; readonly name: string }): string {
   if (m.uid) return m.uid;
@@ -148,7 +144,7 @@ export function findConflict(db: Db, req: RequestLike, ignoreRequestId: string |
     const shift = parts.pop() === 'pm' ? 'PM' : 'AM';
     const date = parts.pop() ?? '';
     const person = parts.join('_');
-    const personName = db.users[person]?.name ?? requestMembers(other).find((m) => personKey(m) === person)?.name ?? 'Someone';
+    const personName = requestMembers(other).find((m) => personKey(m) === person)?.name ?? 'Someone';
     return { date, shift, person, personName, existing: other };
   }
   return null;
@@ -182,11 +178,11 @@ function slotKeysOfRequest(db: Db, requestId: string): string[] {
 // ---- the form ----------------------------------------------------------------
 
 export interface DraftInput {
-  /** Picked by who files: 'employee' from an account, 'intern' from the intern form. */
+  /** "Intern or employee?" on the form: picks the letter's wording and who notes it. */
   readonly memberType: MemberType;
-  /** The filer's name. Typed by an intern; an employee's comes from their account. */
+  /** The filer's full name. */
   readonly name: string;
-  /** Prints under an employee's name. Typed on each letter, starting from the last one. Interns: ''. */
+  /** Prints under an employee's name. Interns: ''. */
   readonly position: string;
   readonly department: string;
   readonly type: AbsenceType;
@@ -210,11 +206,8 @@ export const DEFAULT_TIME_RANGE: Record<Shift, string> = {
   afternoon: '1:00 PM – 5:00 PM',
 };
 
-/**
- * A request as the form describes it, before it is saved: what the live
- * letter shows. `filer` is the signed-in employee, or null for an intern.
- */
-export function buildDraft(input: DraftInput, filer: User | null, base: AbsenceRequest | null, now: Date): AbsenceRequest {
+/** A request as the form describes it, before it is saved: what the live letter shows. */
+export function buildDraft(input: DraftInput, base: AbsenceRequest | null, now: Date): AbsenceRequest {
   const department = input.department.trim();
   const groupMembers = input.groupMode
     ? input.groupMembers.map((m) => ({
@@ -222,8 +215,8 @@ export function buildDraft(input: DraftInput, filer: User | null, base: AbsenceR
         name: m.name.trim(),
         internId: m.internId.trim(),
         position: m.position.trim(),
-        // Interns in a group are usually from the same department: blank means the filer's.
-        department: m.department.trim() || (m.uid ? '' : department),
+        // People in a group are usually from the same department: blank means the filer's.
+        department: m.department.trim() || department,
         signature: input.signatureMethod === 'digital' ? m.signature : '',
       }))
     : [];
@@ -231,12 +224,12 @@ export function buildDraft(input: DraftInput, filer: User | null, base: AbsenceR
   const draft: AbsenceRequest = {
     id: base?.id ?? 'DRAFT-PREVIEW',
     refNo: base?.refNo ?? null,
-    uid: filer?.uid ?? '',
+    uid: base?.uid ?? '',
     accessCode: base?.accessCode ?? null,
     memberType: input.memberType,
     snapshot: {
-      name: filer ? filer.name : input.name.trim(),
-      internId: filer?.internId ?? '',
+      name: input.name.trim(),
+      internId: base?.snapshot.internId ?? '',
       position: input.memberType === 'employee' ? input.position.trim() : '',
       department,
     },
@@ -270,25 +263,14 @@ export function buildDraft(input: DraftInput, filer: User | null, base: AbsenceR
   return { ...draft, memberUids: requestUids(draft) };
 }
 
-/** The position and department on the last letter this account filed, to start the next one from. */
-export function lastSnapshot(db: Db, uid: string): Snapshot | null {
-  const last = Object.values(db.requests)
-    .filter((r) => r.uid === uid && (r.snapshot.position || r.snapshot.department))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-  return last?.snapshot ?? null;
-}
-
-/**
- * The form's values for an existing request, or a new one starting tomorrow.
- * `filer` null: the intern form. `last`: the employee's last letter (lastSnapshot).
- */
-export function inputFrom(req: AbsenceRequest | null, filer: User | null, tomorrow: string, dayAfter: string, last: Snapshot | null = null): DraftInput {
+/** The form's values for an existing request, or a new one starting tomorrow. */
+export function inputFrom(req: AbsenceRequest | null, tomorrow: string, dayAfter: string, memberType: MemberType = 'intern'): DraftInput {
   if (!req) {
     return {
-      memberType: filer ? 'employee' : 'intern',
-      name: filer?.name ?? '',
-      position: last?.position || filer?.position || '',
-      department: last?.department || filer?.department || '',
+      memberType,
+      name: '',
+      position: '',
+      department: '',
       type: 'full',
       date: tomorrow,
       startDate: tomorrow,
@@ -298,7 +280,7 @@ export function inputFrom(req: AbsenceRequest | null, filer: User | null, tomorr
       reasonCategory: 'Academic',
       reasonDetails: '',
       signatureMethod: 'digital',
-      internSignature: filer?.savedSignature ?? '',
+      internSignature: '',
       wetCopyImage: '',
       groupMode: false,
       groupMembers: [],
@@ -327,16 +309,11 @@ export function inputFrom(req: AbsenceRequest | null, filer: User | null, tomorr
 
 // ---- saving -------------------------------------------------------------------
 
-const EDITABLE: readonly RequestStatus[] = ['draft', 'returned', 'submitted'];
+const REVISABLE: readonly RequestStatus[] = ['submitted', 'returned'];
 
-/** Only the account that filed a request may edit it, and only before HR decides. */
-export function canEdit(req: AbsenceRequest | null | undefined, user: User | null | undefined): boolean {
-  return Boolean(req && user && req.uid && req.uid === user.uid && EDITABLE.includes(req.status));
-}
-
-/** An intern's letter, opened with its code, can be changed while it waits for HR or after HR returns it. */
-export function canGuestEdit(req: AbsenceRequest | null | undefined): boolean {
-  return Boolean(req?.accessCode && (req.status === 'submitted' || req.status === 'returned'));
+/** A letter opened with its code can be changed while it waits for HR or after HR returns it. */
+export function canRevise(req: AbsenceRequest | null | undefined): boolean {
+  return Boolean(req?.accessCode && REVISABLE.includes(req.status));
 }
 
 /** Why the request can't be submitted yet, or null when it can. */
@@ -373,7 +350,7 @@ export function submitProblem(db: Db, draft: AbsenceRequest, input: DraftInput, 
   return null;
 }
 
-// ---- intern letter codes ---------------------------------------------------------
+// ---- letter codes ------------------------------------------------------------------
 
 /** No 0/O or 1/I: the code is read off a screen and typed back in. */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -416,50 +393,33 @@ function uniqueAccessCode(db: Db, make: () => string): string {
 
 export interface SaveOptions {
   readonly now: Date;
-  /** The new request's id, when it isn't an edit. */
+  /** The new request's id, when it isn't a revision. */
   readonly newId: string;
-  /** "Save this signature to my profile" ticked. Accounts only. */
-  readonly saveSignatureToProfile: boolean;
-  /** Makes an intern letter's code (tests pass a fixed one). */
+  /** Makes a new letter's code. The server passes one it has checked is unused; tests pass a fixed one. */
   readonly newCode?: (() => string) | undefined;
 }
 
 /**
- * Saves the form. `filer`: the signed-in employee, or null for the intern
- * form, whose letters are submitted at once (no drafts) and get a code.
+ * Signs and sends the form to HR: a new letter (editingId null), which gets a
+ * code, or a revision of the letter opened with its code. No drafts.
  */
-export function saveRequest(
-  db: Db,
-  filer: User | null,
-  inputIn: DraftInput,
-  target: 'draft' | 'submitted',
-  editingId: string | null,
-  opts: SaveOptions,
-): Outcome<{ id: string; accessCode: string | null }> {
-  if (filer && filer.role !== 'employee') return { ok: false, error: 'Only employees file letters from an account. Interns use the intern form.' };
-  const input: DraftInput = { ...inputIn, memberType: filer ? 'employee' : 'intern' };
+export function saveRequest(db: Db, input: DraftInput, editingId: string | null, opts: SaveOptions): Outcome<{ id: string; accessCode: string }> {
   const existing = editingId ? db.requests[editingId] ?? null : null;
-  if (editingId && !(filer ? canEdit(existing, filer) : canGuestEdit(existing))) {
-    return { ok: false, error: 'This request was already reviewed by HR and can no longer be edited.' };
-  }
-  if (!filer && target === 'draft') return { ok: false, error: 'Intern letters are submitted straight away; they have no drafts.' };
-  if (existing?.status === 'submitted' && target === 'draft') {
-    return { ok: false, error: "A request waiting for HR can't go back to draft. Save your changes, or withdraw it instead." };
+  if (editingId && !canRevise(existing)) {
+    return { ok: false, error: 'This letter was already decided by HR and can no longer be changed.' };
   }
   if (input.groupMode && input.groupMembers.some((m) => !m.name.trim())) {
     return { ok: false, error: 'Enter the name of every person in the group (or remove the empty row).' };
   }
 
-  const draft = buildDraft(input, filer, existing, opts.now);
-  if (target === 'submitted') {
-    const problem = submitProblem(db, draft, input, editingId, opts.now);
-    if (problem) return { ok: false, error: problem };
-  }
+  const draft = buildDraft(input, existing, opts.now);
+  const problem = submitProblem(db, draft, input, editingId, opts.now);
+  if (problem) return { ok: false, error: problem };
 
   const nowIso = opts.now.toISOString();
   const id = existing?.id ?? opts.newId;
   let accessCode = existing?.accessCode ?? null;
-  if (!filer && !accessCode) {
+  if (!accessCode) {
     try {
       accessCode = uniqueAccessCode(db, opts.newCode ?? newAccessCode);
     } catch (err) {
@@ -467,62 +427,44 @@ export function saveRequest(
     }
   }
   const remarks =
-    target === 'draft'
-      ? 'Saved as draft.'
-      : existing?.status === 'returned'
-        ? 'Revised and resubmitted letter.'
-        : existing?.status === 'submitted'
-          ? 'Edited while waiting for HR review.'
-          : filer
-            ? 'Submitted official absence request.'
-            : 'Submitted through the intern form.';
-  const entry: HistoryEntry = { status: target, byUid: filer?.uid ?? '', byName: draft.snapshot.name, remarks, at: nowIso };
+    existing?.status === 'returned'
+      ? 'Revised and resubmitted letter.'
+      : existing?.status === 'submitted'
+        ? 'Edited while waiting for HR review.'
+        : 'Submitted through the absence form.';
+  const entry: HistoryEntry = { status: 'submitted', byUid: '', byName: draft.snapshot.name, remarks, at: nowIso };
 
   const saved: AbsenceRequest = {
     ...draft,
     id,
     accessCode,
-    status: target,
+    status: 'submitted',
     review: existing?.review ?? null,
     // Paper copy tracking for hand-signed letters handed in to HR. Any edit means a new paper.
     paperCopy: draft.signatureMethod === 'wet-paper' ? { status: 'awaiting', receivedAt: null, receivedByName: null } : null,
     history: [...(existing?.history ?? []), entry],
     createdAt: existing?.createdAt ?? nowIso,
-    submittedAt: target === 'submitted' ? nowIso : existing?.submittedAt ?? null,
+    submittedAt: nowIso,
     updatedAt: nowIso,
     templateVersion: db.settings.letter.templateVersion,
   };
 
-  const users =
-    filer && opts.saveSignatureToProfile && draft.signatureMethod === 'digital' && draft.internSignature
-      ? [{ ...filer, savedSignature: draft.internSignature }]
-      : [];
-
-  const message =
-    target === 'draft'
-      ? 'Draft saved.'
-      : existing?.status === 'submitted'
-        ? 'Changes saved. HR will see the updated letter.'
-        : 'Request signed and submitted to HR.';
-
   return {
     ok: true,
     value: { id, accessCode },
-    message,
+    message: existing?.status === 'submitted' ? 'Changes saved. HR will see the updated letter.' : 'Letter signed and sent to HR.',
     changes: {
       requests: [saved],
-      users,
       deleteSlots: existing ? slotKeysOfRequest(db, id) : [],
-      putSlots: target === 'submitted' ? slotsFor(saved) : {},
+      putSlots: slotsFor(saved),
     },
   };
 }
 
-/** `filer` null: an intern withdrawing the letter they opened with its code. */
-export function withdrawRequest(db: Db, filer: User | null, id: string, now: Date): Outcome {
+/** The person who opened the letter with its code takes it back before HR decides. */
+export function withdrawRequest(db: Db, id: string, now: Date): Outcome {
   const req = db.requests[id];
-  const theirs = filer ? Boolean(req?.uid) && req?.uid === filer.uid : Boolean(req?.accessCode);
-  if (!req || req.status !== 'submitted' || !theirs) return { ok: false, error: 'Only a pending request you filed can be withdrawn.' };
+  if (!req || req.status !== 'submitted' || !req.accessCode) return { ok: false, error: 'Only a letter still waiting for HR can be withdrawn.' };
   const at = now.toISOString();
   return {
     ok: true,
@@ -534,7 +476,7 @@ export function withdrawRequest(db: Db, filer: User | null, id: string, now: Dat
           ...req,
           status: 'withdrawn',
           updatedAt: at,
-          history: [...req.history, { status: 'withdrawn', byUid: filer?.uid ?? '', byName: filer?.name ?? req.snapshot.name, remarks: 'Withdrawn before HR review.', at }],
+          history: [...req.history, { status: 'withdrawn', byUid: '', byName: req.snapshot.name, remarks: 'Withdrawn before HR review.', at }],
         },
       ],
       deleteSlots: slotKeysOfRequest(db, id),
@@ -584,6 +526,14 @@ export function decideRequest(db: Db, hr: User, id: string, decision: Decision, 
   const req = db.requests[id];
   if (!req || hr.role !== 'hr') return { ok: false, error: 'Only HR can do that.' };
   if (req.status !== 'submitted') return { ok: false, error: 'This request is no longer waiting for a decision.' };
+  if (decision === 'approved' && !isHrOfficer(db.settings.letter, hr)) {
+    return {
+      ok: false,
+      error: db.settings.letter.hrOfficerEmail
+        ? 'Only the HR officer named in Settings can approve and sign letters. You can comment, return or decline.'
+        : 'Name the HR officer in Settings first: only that account can approve and sign letters.',
+    };
+  }
   if (decision === 'approved' && isAwaitingPaperCopy(req)) return { ok: false, error: 'Mark the hand-signed paper copy as received before approving.' };
   const open = openComments(req);
   if (decision === 'approved' && open.length > 0) {

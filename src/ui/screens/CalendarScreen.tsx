@@ -1,13 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { todayYmd, weekdaysBetween } from '@/core/dates';
-import { includesUser, namesAll, requestMembers } from '@/core/requests';
-import { isHr, type AbsenceRequest } from '@/core/types';
+import { namesAll, requestMembers } from '@/core/requests';
+import type { AbsenceRequest } from '@/core/types';
 import { Button, Card } from '../components';
 import { PageHeader } from '../App';
-import { useApp, useUser } from '../state/AppState';
+import { useApp } from '../state/AppState';
 import { paths } from '../state/paths';
-import { LetterDialog } from '../shared';
 
 type CalFilter = 'all' | 'approved' | 'submitted';
 
@@ -33,15 +32,12 @@ export function eventLabel(r: AbsenceRequest): string {
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/** Everyone's absences by month. HR opens the review; members preview only their own letters. */
+/** Everyone's absences by month, for HR: a click opens the letter's review. */
 export function CalendarScreen() {
   const app = useApp();
-  const user = useUser();
   const navigate = useNavigate();
-  const hr = isHr(user);
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState<CalFilter>('all');
-  const [viewing, setViewing] = useState<AbsenceRequest | null>(null);
 
   const now = new Date();
   const base = new Date(now.getFullYear(), now.getMonth() + offset, 1);
@@ -58,7 +54,7 @@ export function CalendarScreen() {
     <div className="page page--wide">
       <PageHeader
         title="Calendar"
-        subtitle={hr ? 'Approved and waiting absences by day. Click one to open its review.' : 'Who is out, by day. Click one of yours to see its letter.'}
+        subtitle="Approved and waiting absences by day. Click one to open its review."
         actions={
           <div className="row">
             <select className="field__select" aria-label="Show" value={filter} onChange={(e) => setFilter(e.target.value as CalFilter)}>
@@ -98,37 +94,22 @@ export function CalendarScreen() {
             return (
               <div key={ymd} className={`cal__cell${ymd === today ? ' cal__cell--today' : ''}`}>
                 <span className="cal__num">{day}</span>
-                {events.map((ev) => {
-                  const mine = includesUser(ev, user.uid);
-                  const label = `${eventLabel(ev)}${!hr && mine ? ' (you)' : ''}`;
-                  const cls = `cal__event cal__event--${ev.status}${!hr && mine ? ' cal__event--mine' : ''}`;
-                  const title = `${namesAll(ev)} · ${ev.reasonCategory} (${ev.status === 'submitted' ? 'waiting' : ev.status})`;
-                  if (hr) {
-                    return (
-                      <button key={ev.id} type="button" className={cls} title={title} onClick={() => navigate(paths.review(ev.id))}>
-                        {label}
-                      </button>
-                    );
-                  }
-                  if (mine) {
-                    return (
-                      <button key={ev.id} type="button" className={cls} title={`${title} · click to see the letter`} onClick={() => setViewing(ev)}>
-                        {label}
-                      </button>
-                    );
-                  }
-                  return (
-                    <span key={ev.id} className={`${cls} cal__event--view`} title={title}>
-                      {label}
-                    </span>
-                  );
-                })}
+                {events.map((ev) => (
+                  <button
+                    key={ev.id}
+                    type="button"
+                    className={`cal__event cal__event--${ev.status}`}
+                    title={`${namesAll(ev)} · ${ev.reasonCategory} (${ev.status === 'submitted' ? 'waiting' : ev.status})`}
+                    onClick={() => navigate(paths.review(ev.id))}
+                  >
+                    {eventLabel(ev)}
+                  </button>
+                ))}
               </div>
             );
           })}
         </div>
       </Card>
-      {viewing ? <LetterDialog request={viewing} onClose={() => setViewing(null)} /> : null}
     </div>
   );
 }

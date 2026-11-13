@@ -26,6 +26,7 @@ export function QueueScreen() {
   const [status, setStatus] = useState('all');
   const [reason, setReason] = useState('all');
   const [dept, setDept] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   const all = useMemo(() => Object.values(app.db.requests).filter((r) => r.status !== 'draft'), [app.db.requests]);
   const rows = useMemo(() => queueRows(all, status, reason, dept), [all, status, reason, dept]);
@@ -59,9 +60,20 @@ export function QueueScreen() {
     <div className="page page--wide">
       <PageHeader
         title="Review queue"
-        subtitle="Waiting requests come first. Open one to review the letter beside its details."
+        subtitle="Waiting requests come first. Open one to review the letter beside its details. New letters show up when you come back to the app, or with Refresh."
         actions={
           <>
+            <Button
+              variant="ghost"
+              busy={refreshing}
+              onClick={async () => {
+                setRefreshing(true);
+                await app.refresh();
+                setRefreshing(false);
+              }}
+            >
+              Refresh
+            </Button>
             <Button variant="ghost" onClick={() => navigate(paths.calendar)}>
               Calendar
             </Button>

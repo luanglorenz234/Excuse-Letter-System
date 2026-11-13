@@ -1,0 +1,7 @@
+node_modules/
+functions/lib/
+*.local
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log

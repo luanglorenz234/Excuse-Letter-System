@@ -1,15 +1,15 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { saveLetterSettings, type LetterSettingsInput } from '@/core/accounts';
+import type { LetterSettingsInput } from '@/core/settings';
 import { addDaysYmd, todayYmd } from '@/core/dates';
 import { buildDraft, inputFrom } from '@/core/requests';
 import { seedDb } from '@/core/seed';
-import { LETTER_FORMAT_VERSION, type LetterSettings, type MemberType, type NotedBy, type User } from '@/core/types';
-import { Button, Card, TextInput } from '../components';
+import { LETTER_FORMAT_VERSION, type LetterSettings, type MemberType, type NotedBy } from '@/core/types';
+import { Button, Card, Notice, TextInput } from '../components';
 import { PageHeader } from '../App';
 import { ScaledLetter } from '../letter/Letter';
 import { SignaturePad } from '../SignaturePad';
 import { Dialog } from '../shared';
-import { useApp, useUser } from '../state/AppState';
+import { useApp } from '../state/AppState';
 
 /** The form keeps each "Noted by" list as lines of "Name | Title" while it is edited. */
 type LetterForm = Omit<LetterSettingsInput, 'notedBy'> & { notedBy: Record<MemberType, string> };
@@ -26,6 +26,7 @@ const notedByList = (text: string): NotedBy[] =>
 
 function formFrom(s: LetterSettings): LetterForm {
   return {
+    hrOfficerEmail: s.hrOfficerEmail,
     signatoryName: s.signatoryName,
     signatoryTitle: s.signatoryTitle,
     companyName: s.companyName,
@@ -45,24 +46,17 @@ const SAMPLE_REASON = 'I have a meeting with our department chairperson for our 
 /** A made-up request in one format, to preview the letter before saving. */
 function sampleLetter(format: MemberType, settings: LetterSettings) {
   const now = new Date();
-  const employee: User = {
-    uid: 'sample',
-    name: 'Juan Dela Cruz',
-    email: '',
-    internId: '',
-    position: 'IT Administrator',
-    department: 'IT',
-    role: 'employee',
-    memberType: 'employee',
-    status: 'active',
-    createdAt: now.toISOString(),
-  };
-  const filer = format === 'employee' ? employee : null;
   // The next weekday, so the sample reads like a real request.
   let day = addDaysYmd(todayYmd(now), 1);
   while ([0, 6].includes(new Date(`${day}T12:00:00`).getDay())) day = addDaysYmd(day, 1);
-  const input = { ...inputFrom(null, filer, day, addDaysYmd(day, 1)), name: 'Juan Dela Cruz', department: 'IT', reasonDetails: SAMPLE_REASON };
-  return { request: { ...buildDraft(input, filer, null, now), submittedAt: now.toISOString() }, settings };
+  const input = {
+    ...inputFrom(null, day, addDaysYmd(day, 1), format),
+    name: 'Juan Dela Cruz',
+    position: format === 'employee' ? 'IT Administrator' : '',
+    department: 'IT',
+    reasonDetails: SAMPLE_REASON,
+  };
+  return { request: { ...buildDraft(input, null, now), submittedAt: now.toISOString() }, settings };
 }
 
 /**
@@ -71,8 +65,8 @@ function sampleLetter(format: MemberType, settings: LetterSettings) {
  */
 export function SettingsScreen() {
   const app = useApp();
-  const hr = useUser();
   const current = app.db.settings.letter;
+  const locked = !app.mayEditSettings;
   const [form, setForm] = useState<LetterForm>(() => formFrom(current));
   const [preview, setPreview] = useState<MemberType | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,7 +81,7 @@ export function SettingsScreen() {
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    await app.run(saveLetterSettings(app.db, hr, inputFromForm(form)));
+    await app.act({ action: 'saveSettings', settings: inputFromForm(form) });
     setBusy(false);
   };
 
@@ -99,6 +93,23 @@ export function SettingsScreen() {
         description={`Template v${current.templateVersion}. The wording of the intern and employee letters is fixed; interns get the intern letter, employees the employee letter.`}
       >
         <form className="stack" onSubmit={(e) => void save(e)}>
+          {locked ? (
+            <Notice tone="info">Only the HR officer ({current.hrOfficerEmail}) can change these settings. You can see them here.</Notice>
+          ) : current.hrOfficerEmail ? null : (
+            <Notice tone="warn" title="Name the HR officer">
+              No HR officer is named yet, so nobody can approve letters. Enter the sign-in email of the HR account that approves and signs them. After that, only that
+              account can change these settings.
+            </Notice>
+          )}
+          <fieldset className="stack" disabled={locked} style={{ border: 0, padding: 0, margin: 0 }}>
+          <TextInput
+            label="HR officer's sign-in email (approves and signs letters, and changes these settings)"
+            type="email"
+            value={form.hrOfficerEmail}
+            onChange={(e) => set('hrOfficerEmail', e.target.value)}
+            hint="Must match the HR account in Firebase. Changing it hands approving over to that account."
+            required
+          />
           <div className="grid-2">
             <TextInput label="HR officer (addressed to, signs on approval)" value={form.signatoryName} onChange={(e) => set('signatoryName', e.target.value)} required />
             <TextInput label="HR officer's title" value={form.signatoryTitle} onChange={(e) => set('signatoryTitle', e.target.value)} required />
@@ -141,14 +152,17 @@ export function SettingsScreen() {
             <input type="checkbox" checked={form.attachmentsEnabled} onChange={(e) => set('attachmentsEnabled', e.target.checked)} />
             <span>Allow attachments on requests</span>
           </label>
-          <div className="row">
-            <Button variant="primary" type="submit" busy={busy}>
-              Save letter settings
-            </Button>
-            <Button variant="ghost" type="button" onClick={() => setForm(formFrom(current))}>
-              Discard changes
-            </Button>
-          </div>
+          {locked ? null : (
+            <div className="row">
+              <Button variant="primary" type="submit" busy={busy}>
+                Save letter settings
+              </Button>
+              <Button variant="ghost" type="button" onClick={() => setForm(formFrom(current))}>
+                Discard changes
+              </Button>
+            </div>
+          )}
+          </fieldset>
         </form>
       </Card>
       {previewLetter && preview ? (

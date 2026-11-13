@@ -1,0 +1,21 @@
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "letters",
+      "ignore": ["node_modules", ".git", "src", "build.mjs", "tsconfig.json", "*.local", "firebase-debug.log", "firebase-debug.*.log"],
+      "predeploy": ["npm --prefix functions run build"]
+    }
+  ],
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": { "port": 9100 },
+    "functions": { "port": 5100 },
+    "firestore": { "port": 8100 },
+    "ui": { "enabled": false },
+    "singleProjectMode": true
+  }
+}

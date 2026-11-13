@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Nobody reads or writes the database directly. The app goes through the two
+// Cloud Functions (functions/src/index.ts), which use the Admin SDK and check
+// every call: publicApi reaches only the one letter a code opens, and hrApi
+// needs an HR sign-in.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

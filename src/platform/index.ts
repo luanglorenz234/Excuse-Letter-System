@@ -1,24 +1,13 @@
 /**
- * The only way from the screens and the rules to the OS, as in APG Post-It.
+ * The only way from the screens to the OS, as in APG Post-It: files, the
+ * window, and small per-viewer values. The letters themselves are on the
+ * server (src/backend).
  *
- * Three versions: Tauri's (tauri.ts), the desktop app, where the data is in
- * SQLite; a plain browser's (browser.ts), for `npm run dev`, where it is in
- * localStorage; and an in-memory one (memory.ts) for tests.
+ * Three versions: Tauri's (tauri.ts), the desktop app; a plain browser's
+ * (browser.ts), for `npm run dev`; and an in-memory one (memory.ts) for tests.
  */
 
-import type { Changes, Db } from '@/core/types';
-
 export interface Platform {
-  /** Where the data lives, in words: "SQLite on this PC". */
-  readonly storageLabel: string;
-
-  /** Everything stored, or null on the first run (nothing saved yet). */
-  loadDb(): Promise<Db | null>;
-  /** Writes one save in a single transaction. */
-  commit(changes: Changes): Promise<void>;
-  /** Empties the store and writes `changes`: putting the sample data back. */
-  reset(changes: Changes): Promise<void>;
-
   /**
    * Saves a text file the person asked for (the CSV export). Returns where it
    * went, in words to show them.

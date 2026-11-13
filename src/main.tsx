@@ -2,15 +2,16 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './theme/tokens.css';
 import './theme/base.css';
+import { chooseBackend } from './backend';
 import { setPlatform, type Platform } from './platform';
 import { App } from './ui/App';
 import { AppStateProvider } from './ui/state/AppState';
 
 /**
- * Tauri's platform inside the desktop app (data in SQLite). In a plain browser
- * during `npm run dev`, the browser platform (data in localStorage), so the
- * screens can be tried without building Rust. Each is loaded only where it is
- * used, so the browser never loads Tauri's modules.
+ * Tauri's platform inside the desktop app. In a plain browser during
+ * `npm run dev`, the browser platform, so the screens can be tried without
+ * building Rust. Each is loaded only where it is used, so the browser never
+ * loads Tauri's modules. The letters are on the server: src/backend.
  */
 async function choosePlatform(): Promise<Platform | null> {
   if ('__TAURI_INTERNALS__' in window) {
@@ -36,9 +37,10 @@ async function start(): Promise<void> {
     return;
   }
   setPlatform(platform);
+  const backend = await chooseBackend(platform);
   createRoot(root).render(
     <StrictMode>
-      <AppStateProvider platform={platform}>
+      <AppStateProvider platform={platform} backend={backend}>
         <App />
       </AppStateProvider>
     </StrictMode>,

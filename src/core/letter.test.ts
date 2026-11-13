@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { saveLetterSettings } from './accounts';
+import { saveLetterSettings } from './settings';
 import { DEFAULT_NOTED_BY, normalizeSettings } from './db';
 import { formatLetterDate, letterDateYmd, notedByFor, openingText, reasonClause, signsInApp, wordingFor } from './letter';
 import { buildDraft, inputFrom } from './requests';
@@ -8,12 +8,11 @@ import { LETTER_FORMAT_VERSION, type AbsenceRequest, type GroupMember, type Memb
 
 const NOW = new Date(2026, 9, 26, 9, 0, 0);
 
-/** An employee's letter from their account, or an intern's from the intern form. */
+/** A letter from the absence form, as an intern or an employee. */
 function request(memberType: MemberType, over: Partial<ReturnType<typeof inputFrom>>): AbsenceRequest {
-  const db = seedDb();
-  const filer = memberType === 'employee' ? db.users['emp-carlos'] ?? null : null;
-  const input = { ...inputFrom(null, filer, '2026-10-27', '2026-10-28'), name: 'Juan Dela Cruz', department: 'IT', ...over };
-  return buildDraft(input, filer, null, NOW);
+  const position = memberType === 'employee' ? 'IT Administrator' : '';
+  const input = { ...inputFrom(null, '2026-10-27', '2026-10-28', memberType), name: 'Juan Dela Cruz', position, department: 'IT', ...over };
+  return buildDraft(input, null, NOW);
 }
 
 describe('the 2026 letter wording', () => {
@@ -113,8 +112,7 @@ describe('letter settings', () => {
 
   it('saves HR’s "Noted by" lists, and needs at least one name on each', () => {
     const db = seedDb();
-    const hr = db.users['hr-chico'];
-    if (!hr) throw new Error('no HR');
+    const hr = { uid: 'hr-chico', name: 'Ms. Jean Ashley Chico', email: 'chico@apg-letters.test', role: 'hr' } as const;
     const { templateVersion: _v, formatVersion: _f, ...input } = db.settings.letter;
     const edited = { ...input, notedBy: { ...input.notedBy, employee: [{ name: ' Mr. New CEO ', title: 'CEO' }, ...input.notedBy.employee.slice(1)] } };
     const out = saveLetterSettings(db, hr, edited);

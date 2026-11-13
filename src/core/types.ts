@@ -1,32 +1,20 @@
 /**
- * The data model, the same shape the old web app and seed.json use, so data
- * can move between them (and later into Firestore) unchanged.
+ * The data model, the same shape seed.json and the Firestore documents use
+ * (firebase/functions keeps each request as one document).
  */
+
+export type MemberType = 'intern' | 'employee';
 
 /**
- * Employees sign in to file; HR signs in as admin. Interns have no account:
- * they file through the intern form and come back with their letter's code.
- * 'intern' accounts can still be in older data, but can no longer sign in.
+ * Someone signed in. Only HR has accounts (Firebase Authentication on the
+ * apg-letters project): interns and employees file through the absence form
+ * and come back with their letter's code.
  */
-export type Role = 'intern' | 'employee' | 'hr';
-export type MemberType = 'intern' | 'employee';
-/** 'pending' is only in older data: accounts are active as soon as they register. */
-export type UserStatus = 'active' | 'pending' | 'disabled';
-
 export interface User {
   readonly uid: string;
   readonly name: string;
   readonly email: string;
-  readonly internId: string;
-  readonly position: string;
-  readonly department: string;
-  readonly role: Role;
-  readonly memberType?: MemberType | undefined;
-  readonly status: UserStatus;
-  readonly savedSignature?: string | undefined;
-  /** Accounts made through the register form only. Never sent anywhere. */
-  readonly passwordHash?: string | undefined;
-  readonly createdAt: string;
+  readonly role: 'hr';
 }
 
 export type RequestStatus = 'draft' | 'submitted' | 'approved' | 'returned' | 'declined' | 'withdrawn';
@@ -106,9 +94,9 @@ export const COMMENT_MAX = 600;
 export interface AbsenceRequest {
   readonly id: string;
   readonly refNo: string | null;
-  /** The account that filed it, or '' for an intern's letter (interns have no account). */
+  /** Always '' now: nobody files from an account. Older letters filed by an employee account keep its uid. */
   readonly uid: string;
-  /** An intern's letter: the code they open it with again. Null for a letter filed from an account. */
+  /** The code the person opens the letter with again. Null only on older letters filed from an account. */
   readonly accessCode: string | null;
   readonly memberType: MemberType;
   readonly snapshot: Snapshot;
@@ -127,7 +115,7 @@ export interface AbsenceRequest {
   readonly wetCopyImage: string;
   readonly isGroup: boolean;
   readonly groupMembers: readonly GroupMember[];
-  /** Everyone on the letter who has an account. */
+  /** Everyone on the letter who has an account: empty now, kept for older letters. */
   readonly memberUids: readonly string[];
   readonly status: RequestStatus;
   readonly review: Review | null;
@@ -168,6 +156,12 @@ export const LETTER_FORMAT_VERSION = 3;
 
 export interface LetterSettings {
   readonly formatVersion: number;
+  /**
+   * The HR account that approves letters and signs them: its sign-in email,
+   * lowercase. '' until someone in HR claims it in Settings. Other HR accounts
+   * can review, comment, return and decline, but not approve.
+   */
+  readonly hrOfficerEmail: string;
   /** The HR officer the letter is addressed to, who signs it on approval. */
   readonly signatoryName: string;
   readonly signatoryTitle: string;
@@ -194,21 +188,19 @@ export interface Counter {
   readonly nextRefNo: number;
 }
 
-/** Everything the app keeps. Lives in SQLite in the desktop app. */
+/**
+ * Everything the app keeps, in Firestore. The server's rules run on a Db
+ * holding only the documents one action needs (src/server/handlers.ts).
+ */
 export interface Db {
-  readonly users: Readonly<Record<string, User>>;
   readonly requests: Readonly<Record<string, AbsenceRequest>>;
   readonly absenceSlots: Readonly<Record<string, Slot>>;
   readonly settings: Settings;
   readonly counters: Readonly<Record<string, Counter>>;
 }
 
-/**
- * One save: the documents written and the slots removed. Applied in a single
- * SQLite transaction by Rust (src-tauri/src/db.rs), like a Firestore batch.
- */
+/** One save: the documents written and the slots removed, committed in one Firestore transaction. */
 export interface Changes {
-  readonly users?: readonly User[];
   readonly requests?: readonly AbsenceRequest[];
   readonly putSlots?: Readonly<Record<string, Slot>>;
   readonly deleteSlots?: readonly string[];
@@ -225,10 +217,6 @@ export const MAX_GROUP_SIZE = 6;
 export const REASON_MIN = 30;
 export const REASON_MAX = 400;
 export const REASON_CATEGORIES = ['Academic', 'Medical', 'Family emergency', 'School activity', 'Personal', 'Other'] as const;
-
-export function isHr(user: User | null | undefined): boolean {
-  return user?.role === 'hr';
-}
 
 /** As shown under a name: "Intern", "Employee", "HR". Used by the sidebar. */
 export function roleWord(role: string): string {

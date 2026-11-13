@@ -1,17 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { SHOW_TEST_BAR } from '@/config';
-import { includesUser } from '@/core/requests';
-import { isHr, roleWord, type User } from '@/core/types';
 import { Button, Sidebar, TitleBar, type IconName, type SidebarNavItem } from './components';
 import { useApp } from './state/AppState';
 import { paths } from './state/paths';
 import { HomeScreen } from './screens/HomeScreen';
-import { SignInScreen } from './screens/SignInScreen';
-import { DashboardScreen } from './screens/DashboardScreen';
-import { InternEditScreen, InternFormScreen, RequestFormScreen } from './screens/RequestFormScreen';
-import { InternLetterScreen } from './screens/InternLetterScreen';
-import { MyRequestsScreen } from './screens/MyRequestsScreen';
+import { NameScreen, SignInScreen } from './screens/SignInScreen';
+import { EditLetterScreen, FormScreen } from './screens/RequestFormScreen';
+import { LetterScreen } from './screens/LetterScreen';
 import { QueueScreen } from './screens/QueueScreen';
 import { ReviewScreen } from './screens/ReviewScreen';
 import { CalendarScreen } from './screens/CalendarScreen';
@@ -31,10 +26,6 @@ export function App() {
   );
 }
 
-export function homeFor(user: User): string {
-  return isHr(user) ? paths.queue : paths.dashboard;
-}
-
 interface NavDef {
   readonly key: string;
   readonly label: string;
@@ -42,26 +33,16 @@ interface NavDef {
   readonly icon: IconName;
 }
 
-function navFor(user: User): readonly NavDef[] {
-  if (isHr(user)) {
-    return [
-      { key: 'queue', label: 'Review queue', path: paths.queue, icon: 'inbox' },
-      { key: 'calendar', label: 'Calendar', path: paths.calendar, icon: 'calendar' },
-      { key: 'settings', label: 'Settings', path: paths.settings, icon: 'settings' },
-    ];
-  }
-  return [
-    { key: 'dashboard', label: 'Dashboard', path: paths.dashboard, icon: 'home' },
-    { key: 'new', label: 'New request', path: paths.newRequest, icon: 'plus' },
-    { key: 'requests', label: 'My requests', path: paths.myRequests, icon: 'letter' },
-    { key: 'calendar', label: 'Calendar', path: paths.calendar, icon: 'calendar' },
-  ];
-}
+/** Only HR signs in. */
+const HR_NAV: readonly NavDef[] = [
+  { key: 'queue', label: 'Review queue', path: paths.queue, icon: 'inbox' },
+  { key: 'calendar', label: 'Calendar', path: paths.calendar, icon: 'calendar' },
+  { key: 'settings', label: 'Settings', path: paths.settings, icon: 'settings' },
+];
 
 function navKeyFor(pathname: string): string | null {
   const first = pathname.split('/')[1] ?? '';
   if (first === 'review') return 'queue';
-  if (first === 'edit') return 'requests';
   return first || null;
 }
 
@@ -109,25 +90,25 @@ export function AppShell() {
     : null;
 
   const signOut = () => {
-    app.signOut();
     navigate(paths.home);
-    app.notify('Signed out.');
+    void app.signOut();
   };
+
+  const testBar = app.backend.sample ? <TestBar /> : null;
 
   if (!user) {
     return (
       <div className="shell shell--signed-out">
         <div className="shell__content">
           <TitleBar brandHref="#/" windowControls={windowControls} />
-          {SHOW_TEST_BAR ? <TestBar /> : null}
+          {testBar}
           <main className="shell__main" id="main">
             <Routes>
               <Route path={paths.home} element={<HomeScreen />} />
-              <Route path={paths.memberSignIn} element={<SignInScreen mode="member" />} />
-              <Route path={paths.adminSignIn} element={<SignInScreen mode="admin" />} />
-              <Route path={paths.internForm} element={<InternFormScreen />} />
-              <Route path="/letter/:code" element={<InternLetterScreen />} />
-              <Route path="/letter/:code/edit" element={<InternEditScreen />} />
+              <Route path={paths.signIn} element={<SignInScreen />} />
+              <Route path={paths.form} element={<FormScreen />} />
+              <Route path="/letter/:code" element={<LetterScreen />} />
+              <Route path="/letter/:code/edit" element={<EditLetterScreen />} />
               <Route path="*" element={<Navigate to={paths.home} replace />} />
             </Routes>
           </main>
@@ -136,15 +117,28 @@ export function AppShell() {
     );
   }
 
-  const returned = Object.values(app.db.requests).filter((r) => r.uid === user.uid && r.status === 'returned').length;
+  if (app.needsName) {
+    return (
+      <div className="shell shell--signed-out">
+        <div className="shell__content">
+          <TitleBar brandHref="#/" windowControls={windowControls} />
+          {testBar}
+          <main className="shell__main" id="main">
+            <NameScreen />
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   const pending = Object.values(app.db.requests).filter((r) => r.status === 'submitted').length;
-  const nav: SidebarNavItem[] = navFor(user).map((n) => ({
+  const nav: SidebarNavItem[] = HR_NAV.map((n) => ({
     key: n.key,
     label: n.label,
     href: `#${n.path}`,
     icon: n.icon,
-    count: n.key === 'queue' ? pending : n.key === 'requests' ? returned : undefined,
-    countLabel: n.key === 'queue' ? `${pending} waiting` : n.key === 'requests' ? `${returned} returned` : undefined,
+    count: n.key === 'queue' ? pending : undefined,
+    countLabel: n.key === 'queue' ? `${pending} waiting` : undefined,
   }));
 
   return (
@@ -152,7 +146,7 @@ export function AppShell() {
       <Sidebar
         nav={nav}
         currentKey={navKeyFor(location.pathname)}
-        user={{ name: user.name, role: user.role === 'hr' ? 'hr' : user.memberType ?? user.role }}
+        user={{ name: user.name, role: app.isOfficer ? 'HR officer' : 'hr' }}
         onNavigate={(key) => {
           const target = nav.find((n) => n.key === key);
           if (target) navigate(target.href.slice(1));
@@ -166,81 +160,59 @@ export function AppShell() {
       />
       <div className="shell__content">
         <TitleBar windowControls={windowControls} />
-        {SHOW_TEST_BAR ? <TestBar /> : null}
+        {testBar}
         <main className="shell__main" id="main">
-          <SignedInRoutes user={user} />
+          <Routes>
+            <Route path={paths.queue} element={<QueueScreen />} />
+            <Route path="/review/:id" element={<ReviewScreen />} />
+            <Route path={paths.calendar} element={<CalendarScreen />} />
+            <Route path={paths.settings} element={<SettingsScreen />} />
+            <Route path="*" element={<Navigate to={paths.queue} replace />} />
+          </Routes>
         </main>
       </div>
     </div>
   );
 }
 
-function SignedInRoutes({ user }: { user: User }) {
-  const home = homeFor(user);
-  if (isHr(user)) {
-    return (
-      <Routes>
-        <Route path={paths.queue} element={<QueueScreen />} />
-        <Route path="/review/:id" element={<ReviewScreen />} />
-        <Route path={paths.calendar} element={<CalendarScreen />} />
-        <Route path={paths.settings} element={<SettingsScreen />} />
-        <Route path="*" element={<Navigate to={home} replace />} />
-      </Routes>
-    );
-  }
-  return (
-    <Routes>
-      <Route path={paths.dashboard} element={<DashboardScreen />} />
-      <Route path={paths.newRequest} element={<RequestFormScreen />} />
-      <Route path="/edit/:id" element={<RequestFormScreen />} />
-      <Route path={paths.myRequests} element={<MyRequestsScreen />} />
-      <Route path={paths.calendar} element={<CalendarScreen />} />
-      <Route path="*" element={<Navigate to={home} replace />} />
-    </Routes>
-  );
-}
-
-const TEST_INTERN = '__intern';
+const SIGNED_OUT = '';
+const FORM = '__form';
 
 /**
- * For local testing only (src/config.ts SHOW_TEST_BAR): be anyone in the
- * sample data in one click (or an intern, who has no account), and put the
- * sample data back.
+ * The local stand-in only (`npm run dev`, no Firebase): be any sample HR
+ * account in one click, or nobody (the form), and put the sample data back.
  */
 function TestBar() {
   const app = useApp();
   const navigate = useNavigate();
   const location = useLocation();
-  // Interns have no account: only the people who can sign in.
-  const people = Object.values(app.db.users)
-    .filter((u) => u.role !== 'intern')
-    .sort((a, b) => Number(isHr(b)) - Number(isHr(a)) || a.name.localeCompare(b.name));
-  const waiting = Object.values(app.db.requests).filter((r) => r.status === 'submitted').length;
-  const be = (value: string) => {
-    const u = app.db.users[value];
-    if (u) {
-      app.signInAs(u.uid);
-      navigate(homeFor(u));
+  const sample = app.backend.sample;
+  if (!sample) return null;
+  const be = async (value: string) => {
+    const account = sample.accounts.find((a) => a.email === value);
+    if (account) {
+      const error = await app.signIn(account.email, account.password);
+      if (error) app.notify(error, 'warn');
+      navigate(paths.queue);
       return;
     }
-    app.signOut();
-    navigate(value === TEST_INTERN ? paths.internForm : paths.home);
+    if (app.user) await app.signOut();
+    navigate(value === FORM ? paths.form : paths.home);
   };
-  const internPage = !app.user && (location.pathname === paths.internForm || location.pathname.startsWith('/letter/'));
+  const formPage = !app.user && (location.pathname === paths.form || location.pathname.startsWith('/letter/'));
+  const waiting = Object.values(app.db.requests).filter((r) => r.status === 'submitted').length;
   return (
     <div className="test-bar" role="region" aria-label="Test tools">
-      <span className="test-bar__label">Test mode · data in {app.platform.storageLabel}</span>
+      <span className="test-bar__label">Test mode · letters in {app.backend.label}</span>
       <label className="test-bar__pick">
         <span className="visually-hidden">Be someone else</span>
-        <select value={app.user?.uid ?? (internPage ? TEST_INTERN : '')} onChange={(e) => be(e.target.value)} className="test-bar__select">
-          <option value="">Signed out (home)</option>
-          <option value={TEST_INTERN}>Intern · no account (intern form)</option>
-          {people.map((u) => (
-            <option key={u.uid} value={u.uid}>
-              {u.name} · {roleWord(u.role)}
-              {u.status !== 'active' ? ` (${u.status})` : ''}
-              {isHr(u) && waiting ? ` · ${waiting} waiting` : ''}
-              {!isHr(u) ? ` · ${Object.values(app.db.requests).filter((r) => includesUser(r, u.uid)).length} requests` : ''}
+        <select value={app.user?.email ?? (formPage ? FORM : SIGNED_OUT)} onChange={(e) => void be(e.target.value)} className="test-bar__select">
+          <option value={SIGNED_OUT}>Signed out (home)</option>
+          <option value={FORM}>Intern or employee · no account (the form)</option>
+          {sample.accounts.map((a) => (
+            <option key={a.email} value={a.email}>
+              {a.email} · {a.label}
+              {app.user?.email === a.email && waiting ? ` · ${waiting} waiting` : ''}
             </option>
           ))}
         </select>

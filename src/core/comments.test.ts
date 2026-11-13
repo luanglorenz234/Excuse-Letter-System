@@ -14,10 +14,9 @@ function apply<T>(db: Db, outcome: Outcome<T>): Db {
   return applyChanges(db, outcome.changes);
 }
 
-function hr(db: Db): User {
-  const u = db.users['hr-chico'];
-  if (!u) throw new Error('no HR');
-  return u;
+/** Any HR account comments; the sample data's HR officer is one. */
+function hr(_db: Db): User {
+  return { uid: 'hr-chico', name: 'Ms. Jean Ashley Chico', email: 'chico@apg-letters.test', role: 'hr' };
 }
 
 describe('finding a comment’s words on the letter', () => {
@@ -58,9 +57,9 @@ describe('HR commenting on a letter', () => {
 
   it('only HR, only on a waiting letter, and never an empty comment', () => {
     const db = seedDb();
-    const employee = db.users['emp-carlos'];
-    if (!employee) throw new Error('no employee');
-    expect(addComment(db, employee, WAITING, NEW, NOW, 'c1').ok).toBe(false);
+    // Only HR ever signs in; an account of any other kind (none exists now) is refused.
+    const notHr = { ...hr(db), role: 'intern' } as unknown as User;
+    expect(addComment(db, notHr, WAITING, NEW, NOW, 'c1').ok).toBe(false);
     expect(addComment(db, hr(db), 'req-2026-001', NEW, NOW, 'c1').ok).toBe(false);
     expect(addComment(db, hr(db), WAITING, { ...NEW, body: '   ' }, NOW, 'c1').ok).toBe(false);
     expect(addComment(db, hr(db), WAITING, { ...NEW, quote: '  ' }, NOW, 'c1').ok).toBe(false);

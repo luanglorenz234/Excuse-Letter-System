@@ -1,22 +1,34 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CODE_LENGTH, findByAccessCode, normalizeAccessCode } from '@/core/requests';
+import { CODE_LENGTH, normalizeAccessCode } from '@/core/requests';
+import type { LetterReply } from '@/server/handlers';
 import { Button, Card, Notice, TextInput } from '../components';
 import { useApp } from '../state/AppState';
 import { paths } from '../state/paths';
 
-/** Signed out: interns file or check a letter without an account; employees and HR sign in. */
+/** Signed out: interns and employees file or check a letter without an account; HR signs in. */
 export function HomeScreen() {
   const app = useApp();
   const navigate = useNavigate();
   const [code, setCode] = useState('');
-  const [notFound, setNotFound] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
-  const open = (e: FormEvent) => {
+  const open = async (e: FormEvent) => {
     e.preventDefault();
-    const found = findByAccessCode(app.db, code);
-    setNotFound(!found);
-    if (found?.accessCode) navigate(paths.internLetter(found.accessCode));
+    const typed = normalizeAccessCode(code);
+    if (typed.length !== CODE_LENGTH) {
+      setProblem(`A letter code has ${CODE_LENGTH} letters and numbers.`);
+      return;
+    }
+    setBusy(true);
+    const reply = await app.call<LetterReply>({ action: 'open', code: typed });
+    setBusy(false);
+    if (!reply.ok) {
+      setProblem(reply.notFound ? 'No letter has that code. Check it and try again, or ask HR.' : reply.error);
+      return;
+    }
+    navigate(paths.letter(reply.value.code), { state: { letter: reply.value.letter } });
   };
 
   return (
@@ -29,56 +41,46 @@ export function HomeScreen() {
         <p className="muted">Choose how you want to continue.</p>
       </div>
       <div className="welcome__options">
-        <Card className="welcome__option" title="Interns">
+        <Card className="welcome__option" title="Interns and employees">
           <p className="muted">No account needed. Fill out the form with your name and department, sign it, and send it to HR.</p>
           <div>
-            <Button variant="primary" onClick={() => navigate(paths.internForm)}>
-              Intern absence form
+            <Button variant="primary" onClick={() => navigate(paths.form)}>
+              Absence form
             </Button>
           </div>
-          <form className="stack stack--tight welcome__code" onSubmit={open} noValidate>
+          <form className="stack stack--tight welcome__code" onSubmit={(e) => void open(e)} noValidate>
             <TextInput
               label="Already sent one? Enter your letter code"
               value={code}
               onChange={(e) => {
                 setCode(e.target.value);
-                setNotFound(false);
+                setProblem(null);
               }}
               placeholder="e.g. K7Q-4MZ"
               autoComplete="off"
               spellCheck={false}
               hint="See HR's comments, revise a returned letter, or check its status."
             />
-            {notFound ? (
+            {problem ? (
               <Notice tone="warn" live>
-                {normalizeAccessCode(code).length === CODE_LENGTH ? 'No letter has that code. Check it and try again, or ask HR.' : `A letter code has ${CODE_LENGTH} letters and numbers.`}
+                {problem}
               </Notice>
             ) : null}
             <div>
-              <Button type="submit" variant="ghost">
+              <Button type="submit" variant="ghost" busy={busy}>
                 Check my letter
               </Button>
             </div>
           </form>
         </Card>
-        <div className="stack">
-          <Card className="welcome__option" title="Employees">
-            <p className="muted">Sign in or register to file your absence letter. Your letter is noted by the CEO, HR and Marketing.</p>
-            <div>
-              <Button variant="ghost" onClick={() => navigate(paths.memberSignIn)}>
-                Employee sign-in
-              </Button>
-            </div>
-          </Card>
-          <Card className="welcome__option" title="HR">
-            <p className="muted">Review, comment on, approve, return or decline submitted letters.</p>
-            <div>
-              <Button variant="ghost" onClick={() => navigate(paths.adminSignIn)}>
-                Login as admin
-              </Button>
-            </div>
-          </Card>
-        </div>
+        <Card className="welcome__option" title="HR">
+          <p className="muted">Review, comment on, approve, return or decline submitted letters.</p>
+          <div>
+            <Button variant="ghost" onClick={() => navigate(paths.signIn)}>
+              HR sign-in
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );

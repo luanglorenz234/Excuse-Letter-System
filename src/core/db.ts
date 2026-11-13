@@ -11,7 +11,6 @@ import type {
   NotedBy,
   Settings,
   Slot,
-  User,
 } from './types';
 import { LETTER_BLOCKS, LETTER_FORMAT_VERSION } from './types';
 
@@ -60,17 +59,15 @@ export const DEFAULT_LETTER_TEXT = {
   subject: 'Notice of Absence',
 } as const;
 
-/** A new Db with the changes written: what SQLite will hold once the same changes are committed. */
+/** A new Db with the changes written: what Firestore holds once the same changes are committed. */
 export function applyChanges(db: Db, changes: Changes): Db {
-  const users = { ...db.users };
-  for (const u of changes.users ?? []) users[u.uid] = u;
   const requests = { ...db.requests };
   for (const r of changes.requests ?? []) requests[r.id] = r;
   const absenceSlots = { ...db.absenceSlots };
   for (const key of changes.deleteSlots ?? []) delete absenceSlots[key];
   Object.assign(absenceSlots, changes.putSlots ?? {});
   const counters = { ...db.counters, ...(changes.counters ?? {}) };
-  return { users, requests, absenceSlots, counters, settings: changes.settings ?? db.settings };
+  return { requests, absenceSlots, counters, settings: changes.settings ?? db.settings };
 }
 
 type Loose = Record<string, unknown>;
@@ -159,24 +156,6 @@ export function normalizeRequest(raw: Loose): AbsenceRequest {
   };
 }
 
-export function normalizeUser(raw: Loose): User {
-  const role = raw.role === 'hr' || raw.role === 'employee' ? raw.role : 'intern';
-  return {
-    uid: str(raw.uid),
-    name: str(raw.name),
-    email: str(raw.email),
-    internId: str(raw.internId),
-    position: str(raw.position),
-    department: str(raw.department),
-    role,
-    memberType: role === 'employee' ? 'employee' : role === 'intern' ? 'intern' : undefined,
-    status: raw.status === 'pending' || raw.status === 'disabled' ? raw.status : 'active',
-    savedSignature: str(raw.savedSignature),
-    passwordHash: typeof raw.passwordHash === 'string' ? raw.passwordHash : undefined,
-    createdAt: str(raw.createdAt, new Date().toISOString()),
-  };
-}
-
 function normalizeNotedBy(raw: unknown, d: readonly NotedBy[]): readonly NotedBy[] {
   const list = Array.isArray(raw)
     ? (raw as Loose[]).map((n) => ({ name: str(n?.name).trim(), title: str(n?.title).trim() })).filter((n) => n.name)
@@ -199,6 +178,7 @@ export function normalizeSettings(raw: unknown): Settings {
   const notedFor = (type: MemberType) => (version >= 3 ? notedBy?.[type] : (notedBy?.[type] as Loose | undefined)?.notedBy);
   const l: LetterSettings = {
     formatVersion: LETTER_FORMAT_VERSION,
+    hrOfficerEmail: str(letter.hrOfficerEmail).trim().toLowerCase(),
     signatoryName: (known && str(letter.signatoryName)) || DEFAULT_LETTER_TEXT.signatoryName,
     signatoryTitle: (known && str(letter.signatoryTitle)) || DEFAULT_LETTER_TEXT.signatoryTitle,
     companyName: (known && str(letter.companyName)) || DEFAULT_LETTER_TEXT.companyName,
@@ -214,15 +194,9 @@ export function normalizeSettings(raw: unknown): Settings {
   return { letter: l };
 }
 
-/** Builds a clean Db from anything shaped like seed.json or the old app's saved state. */
+/** Builds a clean Db from anything shaped like seed.json or the old app's saved state (its accounts are dropped). */
 export function normalizeDb(raw: unknown): Db {
   const r = (raw ?? {}) as Loose;
-  const users: Record<string, User> = {};
-  for (const [key, value] of Object.entries((r.users ?? {}) as Record<string, Loose>)) {
-    // The old app kept alias entries ("demo-intern") pointing at another uid: keep one per uid.
-    const u = normalizeUser(value);
-    if (u.uid && (key === u.uid || !users[u.uid])) users[u.uid] = u;
-  }
   const requests: Record<string, AbsenceRequest> = {};
   for (const value of Object.values((r.requests ?? {}) as Record<string, Loose>)) {
     const req = normalizeRequest(value);
@@ -236,13 +210,12 @@ export function normalizeDb(raw: unknown): Db {
   for (const [year, value] of Object.entries((r.counters ?? {}) as Record<string, Loose>)) {
     counters[year] = { nextRefNo: typeof value.nextRefNo === 'number' ? value.nextRefNo : 1 };
   }
-  return { users, requests, absenceSlots, counters, settings: normalizeSettings(r.settings) };
+  return { requests, absenceSlots, counters, settings: normalizeSettings(r.settings) };
 }
 
-/** Every document in the Db as one set of changes: how a reset writes the seed into SQLite. */
+/** Every document in the Db as one set of changes: how the local stand-in and the emulator are filled with the sample data. */
 export function changesForWholeDb(db: Db): Changes {
   return {
-    users: Object.values(db.users),
     requests: Object.values(db.requests),
     putSlots: db.absenceSlots,
     settings: db.settings,

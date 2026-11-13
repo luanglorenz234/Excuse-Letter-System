@@ -1,15 +1,13 @@
 //! APG Excuse Letters' Rust shell, built the same way as APG Post-It's.
 //!
-//! Rust does only what the WebView can't. Every rule (the letter, the duplicate
-//! guard, who may edit, approvals) is TypeScript in `src/core`, so it can move to
-//! a Cloud Function as it is. What lives here:
+//! Rust does only what the WebView can't. The letters are on the apg-letters
+//! Firebase project, and every rule (the letter, the duplicate guard, who may
+//! approve) is TypeScript in `src/core`, run by the Cloud Functions. What lives here:
 //!
-//! - `db_load` / `db_commit` / `db_reset`: the data, in SQLite on this PC (db.rs).
 //! - `save_text_file`: the CSV export, into `Downloads\APG Excuse Letters` (files.rs).
 //! - The plugins, each scoped in `capabilities/default.json`: opening that folder,
 //!   one window per PC, and the window's place and size.
 
-mod db;
 mod files;
 
 use tauri::Manager;
@@ -19,7 +17,6 @@ use tauri_plugin_window_state::StateFlags;
 
 /// The one window, as labelled in `tauri.conf.json`.
 const MAIN_WINDOW: &str = "main";
-const DB_FILE: &str = "excuse-letters.db";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -43,16 +40,8 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![
-            db::db_load,
-            db::db_commit,
-            db::db_reset,
-            files::save_text_file,
-        ])
+        .invoke_handler(tauri::generate_handler![files::save_text_file])
         .setup(|app| {
-            let dir = app.path().app_local_data_dir()?;
-            std::fs::create_dir_all(&dir)?;
-            app.manage(db::Database::open(&dir.join(DB_FILE))?);
             // The window starts hidden (tauri.conf.json) so it can be put back
             // where it was first. Its background is the theme's, so showing it
             // before the page has painted is dark, not a white flash.

@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { addComment, deleteComment, editComment, newCommentId, openComments, resolveComments } from '@/core/comments';
+import { openComments, type NewComment } from '@/core/comments';
 import { formatShortDate } from '@/core/dates';
 import { notedByFor, signsInApp } from '@/core/letter';
-import { decideRequest, filerKey, formatAccessCode, isAwaitingPaperCopy, isGroupRequest, namesShort, requestMembers, setPaperCopy, type Decision } from '@/core/requests';
+import { filerKey, formatAccessCode, isAwaitingPaperCopy, isGroupRequest, namesShort, requestMembers, type Decision } from '@/core/requests';
 import type { AbsenceRequest, Db } from '@/core/types';
 import { Button, Card, EmptyState, Notice, Pill } from '../components';
 import { safeImageSrc } from '../letter/Letter';
 import { LetterComments } from '../letter/LetterComments';
 import { printLetter } from '../letter/print';
 import { PageHeader } from '../App';
-import { useApp, useUser } from '../state/AppState';
+import { useApp } from '../state/AppState';
 import { paths } from '../state/paths';
 import { PhotoDialog, StatusPill, datesText, typeText } from '../shared';
 
@@ -32,8 +32,7 @@ export function referenceSignatures(db: Db, req: AbsenceRequest): { src: string;
       refs.push({ src: safe, label });
     }
   };
-  if (req.uid) add(db.users[req.uid]?.savedSignature, 'Saved on profile');
-  // The same person's earlier letters: by account, or for an intern (no account) by name.
+  // The same person's earlier letters, by name (nobody filing has an account).
   const who = filerKey(req);
   Object.values(db.requests)
     .filter((r) => filerKey(r) === who && r.id !== req.id && r.status !== 'draft' && r.signatureMethod === 'digital')
@@ -46,7 +45,6 @@ export function referenceSignatures(db: Db, req: AbsenceRequest): { src: string;
 
 export function ReviewScreen() {
   const app = useApp();
-  const hr = useUser();
   const navigate = useNavigate();
   const { id = '' } = useParams();
   const req = app.db.requests[id];
@@ -89,28 +87,24 @@ export function ReviewScreen() {
   // On the employee letter the CEO and Marketing sign the printed copy by hand.
   const signByHand = notedByFor(req, app.db.settings.letter).filter((n) => !signsInApp(n, app.db.settings.letter));
 
-  const run = (outcome: Parameters<typeof app.run>[0]) => app.run(outcome);
   const commentHandlers = waiting
     ? {
-        onAdd: (c: Parameters<typeof addComment>[3]) => {
-          const now = new Date();
-          return run(addComment(app.db, hr, req.id, c, now, newCommentId(now)));
-        },
-        onEdit: (id: string, body: string) => run(editComment(app.db, hr, req.id, id, body, new Date())),
-        onDelete: (id: string) => run(deleteComment(app.db, hr, req.id, id, new Date())),
-        onResolve: (id: string, resolved: boolean) => run(resolveComments(app.db, hr, req.id, [id], resolved, new Date())),
+        onAdd: (comment: NewComment) => app.act({ action: 'addComment', id: req.id, comment }),
+        onEdit: (commentId: string, body: string) => app.act({ action: 'editComment', id: req.id, commentId, body }),
+        onDelete: (commentId: string) => app.act({ action: 'deleteComment', id: req.id, commentId }),
+        onResolve: (commentId: string, resolved: boolean) => app.act({ action: 'resolveComments', id: req.id, ids: [commentId], resolved }),
       }
     : {};
 
   const resolveAll = async () => {
     setBusy('resolve');
-    await app.run(resolveComments(app.db, hr, req.id, null, true, new Date()));
+    await app.act({ action: 'resolveComments', id: req.id, ids: null, resolved: true });
     setBusy(null);
   };
 
   const decide = async (decision: Decision) => {
     setBusy(decision);
-    const saved = await app.run(decideRequest(app.db, hr, req.id, decision, remarks, new Date()));
+    const saved = await app.act({ action: 'decide', id: req.id, decision, remarks });
     setBusy(null);
     if (saved) {
       setRemarks('');
@@ -120,7 +114,7 @@ export function ReviewScreen() {
 
   const paper = async (received: boolean) => {
     setBusy('paper');
-    await app.run(setPaperCopy(app.db, hr, req.id, received, new Date()));
+    await app.act({ action: 'paper', id: req.id, received });
     setBusy(null);
   };
 
@@ -185,10 +179,19 @@ export function ReviewScreen() {
                     placeholder="Optional when approving, or when returning with comments on the letter."
                   />
                 </div>
+                {app.isOfficer ? null : (
+                  <Notice tone="info">
+                    {app.db.settings.letter.hrOfficerEmail
+                      ? `Only the HR officer (${app.db.settings.letter.hrOfficerEmail}) approves and signs letters. You can comment, return or decline.`
+                      : 'No HR officer is named yet: name one in Settings. Only that account approves and signs letters.'}
+                  </Notice>
+                )}
                 <div className="row">
-                  <Button variant="primary" busy={busy === 'approved'} disabled={busy !== null || paperPending || open.length > 0} onClick={() => void decide('approved')}>
-                    Approve
-                  </Button>
+                  {app.isOfficer ? (
+                    <Button variant="primary" busy={busy === 'approved'} disabled={busy !== null || paperPending || open.length > 0} onClick={() => void decide('approved')}>
+                      Approve
+                    </Button>
+                  ) : null}
                   <Button variant="ghost" busy={busy === 'returned'} disabled={busy !== null} onClick={() => void decide('returned')}>
                     Return for revision
                   </Button>
@@ -338,7 +341,6 @@ function SignatureCheck({ request: req, db, busy, onPaper, onPhoto }: { request:
   let main;
   if (req.signatureMethod === 'digital') {
     const src = safeImageSrc(req.internSignature);
-    const sameAsProfile = src !== '' && src === safeImageSrc(db.users[req.uid]?.savedSignature);
     main = src ? (
       <>
         <div className="sig-compare">
@@ -347,7 +349,6 @@ function SignatureCheck({ request: req, db, busy, onPaper, onPhoto }: { request:
             This request
           </div>
         </div>
-        {sameAsProfile ? <p className="muted small">Same image as the signature saved on this person's profile.</p> : null}
       </>
     ) : (
       <Notice tone="danger">No signature on this request.</Notice>

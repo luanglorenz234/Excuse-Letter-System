@@ -1,0 +1,12 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    { "collectionGroup": "requests", "fieldPath": "wetCopyImage", "indexes": [] },
+    { "collectionGroup": "requests", "fieldPath": "internSignature", "indexes": [] },
+    { "collectionGroup": "requests", "fieldPath": "groupMembers", "indexes": [] },
+    { "collectionGroup": "requests", "fieldPath": "history", "indexes": [] },
+    { "collectionGroup": "requests", "fieldPath": "comments", "indexes": [] },
+    { "collectionGroup": "requests", "fieldPath": "review", "indexes": [] },
+    { "collectionGroup": "config", "fieldPath": "letter", "indexes": [] }
+  ]
+}

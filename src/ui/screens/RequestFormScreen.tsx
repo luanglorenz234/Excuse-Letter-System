@@ -1,31 +1,19 @@
 import { useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { memberComments } from '@/core/comments';
 import { addDaysYmd, minFilingDate, todayYmd } from '@/core/dates';
-import {
-  DEFAULT_TIME_RANGE,
-  buildDraft,
-  canEdit,
-  canGuestEdit,
-  conflictMessage,
-  filerKey,
-  findByAccessCode,
-  findConflict,
-  inputFrom,
-  lastSnapshot,
-  newRequestId,
-  saveRequest,
-  type DraftInput,
-} from '@/core/requests';
-import { MAX_GROUP_SIZE, REASON_CATEGORIES, REASON_MAX, REASON_MIN, type AbsenceRequest, type AbsenceType, type GroupMember, type SignatureMethod, type User } from '@/core/types';
+import { DEFAULT_TIME_RANGE, buildDraft, canRevise, inputFrom, type DraftInput } from '@/core/requests';
+import { MAX_GROUP_SIZE, REASON_CATEGORIES, REASON_MAX, REASON_MIN, type AbsenceRequest, type AbsenceType, type GroupMember, type MemberType, type SignatureMethod } from '@/core/types';
+import type { LetterReply } from '@/server/handlers';
 import { Button, Card, Notice, TextInput } from '../components';
 import { safeImageSrc } from '../letter/Letter';
 import { LetterComments } from '../letter/LetterComments';
 import { printLetter } from '../letter/print';
 import { PageHeader } from '../App';
 import { SignaturePad, compressImageFile } from '../SignaturePad';
-import { useApp, useUser } from '../state/AppState';
+import { useApp } from '../state/AppState';
 import { paths } from '../state/paths';
+import { LetterPlaceholder, useLetter, type LetterState } from './LetterScreen';
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: readonly (readonly [T, string])[]; onChange: (v: T) => void; label: string }) {
   return (
@@ -39,87 +27,51 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
   );
 }
 
-/** An employee's new request, or editing one of theirs. */
-export function RequestFormScreen() {
-  const { id } = useParams();
-  const app = useApp();
-  const user = useUser();
-  const existing = id ? app.db.requests[id] ?? null : null;
-  if (id && !canEdit(existing, user)) return <Navigate to={paths.myRequests} replace />;
-  return <RequestForm key={id ?? 'new'} filer={user} existing={existing} />;
+/** The absence form: interns and employees, no account. */
+export function FormScreen() {
+  return <RequestForm key="new" existing={null} />;
 }
 
-/** The intern form: no account, just names and department. */
-export function InternFormScreen() {
-  return <RequestForm key="intern-new" filer={null} existing={null} />;
-}
-
-/** An intern revising their letter, opened with its code. */
-export function InternEditScreen() {
+/** Changing a letter opened with its code, while HR hasn't decided or after HR returned it. */
+export function EditLetterScreen() {
   const { code = '' } = useParams();
-  const app = useApp();
-  const existing = findByAccessCode(app.db, code);
-  if (!existing?.accessCode) return <Navigate to={paths.home} replace />;
-  if (!canGuestEdit(existing)) return <Navigate to={paths.internLetter(existing.accessCode)} replace />;
-  return <RequestForm key={existing.id} filer={null} existing={existing} />;
+  const location = useLocation();
+  const [load, , retry] = useLetter(code, (location.state as LetterState | null)?.letter);
+  if (load.state !== 'ready') return <LetterPlaceholder load={load} retry={retry} />;
+  const existing = load.letter;
+  if (!canRevise(existing)) return <Navigate to={paths.letter(code)} replace state={{ letter: existing } satisfies LetterState} />;
+  return <RequestForm key={existing.id} existing={existing} />;
 }
 
 /**
- * The form on the left, the live letter on the right. `filer`: the signed-in
- * employee, or null for an intern (no account: they type their name and
- * department, and get a code for the letter).
+ * The form on the left, the live letter on the right. Nobody filing has an
+ * account: they type their name and department, and get a code for the letter.
  */
-function RequestForm({ filer, existing }: { filer: User | null; existing: AbsenceRequest | null }) {
+function RequestForm({ existing }: { existing: AbsenceRequest | null }) {
   const app = useApp();
   const navigate = useNavigate();
-  const intern = filer === null;
-  const editingId = existing?.id ?? null;
   const tomorrow = addDaysYmd(todayYmd(), 1);
-  const [input, setInput] = useState<DraftInput>(() =>
-    inputFrom(existing, filer, tomorrow, addDaysYmd(tomorrow, 1), filer ? lastSnapshot(app.db, filer.uid) : null),
-  );
-  const [saveSig, setSaveSig] = useState(true);
-  const [busy, setBusy] = useState<null | 'draft' | 'submitted'>(null);
-  const [addPick, setAddPick] = useState('');
+  const [input, setInput] = useState<DraftInput>(() => inputFrom(existing, tomorrow, addDaysYmd(tomorrow, 1)));
+  const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
   const set = <K extends keyof DraftInput>(key: K, value: DraftInput[K]) => setInput((cur) => ({ ...cur, [key]: value }));
   const setMember = (i: number, patch: Partial<GroupMember>) =>
     setInput((cur) => ({ ...cur, groupMembers: cur.groupMembers.map((m, j) => (j === i ? { ...m, ...patch } : m)) }));
+  // Everyone on a letter is the same kind: the letter's wording is for interns or for employees.
+  const setMemberType = (memberType: MemberType) => setInput((cur) => ({ ...cur, memberType, groupMembers: cur.groupMembers.map((m) => ({ ...m, memberType })) }));
 
-  const draft = useMemo(() => buildDraft(input, filer, existing, new Date()), [input, filer, existing]);
-  const conflict = useMemo(() => findConflict(app.db, draft, editingId), [app.db, draft, editingId]);
+  const draft = useMemo(() => buildDraft(input, existing, new Date()), [input, existing]);
   const comments = useMemo(() => (existing ? memberComments(existing) : []), [existing]);
   const isPending = existing?.status === 'submitted';
+  const employee = input.memberType === 'employee';
   const reasonLen = input.reasonDetails.trim().length;
   const minDate = minFilingDate();
   const digital = input.signatureMethod === 'digital';
   const full = input.groupMembers.length + 1 >= MAX_GROUP_SIZE;
-  const back = intern ? (existing?.accessCode ? paths.internLetter(existing.accessCode) : paths.home) : paths.myRequests;
+  const back = existing?.accessCode ? paths.letter(existing.accessCode) : paths.home;
 
-  // Employees add other employees from their accounts; interns type everyone in.
-  const addable = useMemo(() => {
-    if (intern) return [];
-    const taken = new Set(input.groupMembers.map((m) => m.uid).filter(Boolean));
-    return Object.values(app.db.users)
-      .filter((u) => u.role === 'employee' && u.status !== 'disabled' && u.uid !== filer.uid && !taken.has(u.uid))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [app.db.users, input.groupMembers, intern, filer]);
-
-  const addFromList = () => {
-    const u = app.db.users[addPick];
-    if (!u) {
-      app.notify('Choose a person from the list first.', 'warn');
-      return;
-    }
-    if (full) {
-      app.notify(`A group letter can have at most ${MAX_GROUP_SIZE} people.`, 'warn');
-      return;
-    }
-    set('groupMembers', [...input.groupMembers, { uid: u.uid, name: u.name, internId: u.internId, position: u.position, department: u.department, memberType: 'employee', signature: '' }]);
-    setAddPick('');
-  };
-  const addManual = () => {
+  const addPerson = () => {
     if (full) {
       app.notify(`A group letter can have at most ${MAX_GROUP_SIZE} people.`, 'warn');
       return;
@@ -139,32 +91,31 @@ function RequestForm({ filer, existing }: { filer: User | null; existing: Absenc
     void printLetter({ ...draft, internSignature: '', groupMembers: draft.groupMembers.map((m) => ({ ...m, signature: '' })), status: 'draft' }, app.db.settings.letter, { blankSignature: true });
   };
 
-  const save = async (target: 'draft' | 'submitted') => {
-    setBusy(target);
-    const now = new Date();
-    const outcome = saveRequest(app.db, filer, input, target, editingId, { now, newId: newRequestId(now), saveSignatureToProfile: saveSig });
-    setProblem(outcome.ok ? null : outcome.error);
-    const saved = await app.run(outcome);
-    setBusy(null);
-    if (!saved || !outcome.ok) return;
-    if (intern && outcome.value.accessCode) navigate(paths.internLetter(outcome.value.accessCode), { state: { fresh: !existing } });
-    else navigate(paths.myRequests);
+  const send = async () => {
+    setBusy(true);
+    const reply = existing?.accessCode
+      ? await app.call<LetterReply>({ action: 'revise', code: existing.accessCode, input })
+      : await app.call<LetterReply>({ action: 'submit', input });
+    setBusy(false);
+    if (!reply.ok) {
+      setProblem(reply.error);
+      return;
+    }
+    setProblem(null);
+    app.notify(reply.message);
+    navigate(paths.letter(reply.value.code), { state: { letter: reply.value.letter, fresh: !existing } satisfies LetterState });
   };
 
-  const title = intern ? (existing ? 'Revise your letter' : 'Intern absence form') : isPending ? 'Edit pending request' : existing ? 'Revise request' : 'New absence request';
+  const title = isPending ? 'Change your letter' : existing ? 'Revise your letter' : 'Absence form';
 
   return (
     <div className="page page--wide">
       <PageHeader
         title={title}
-        subtitle={
-          intern
-            ? 'No account needed. Fill in your details; the official letter on the right updates as you type.'
-            : 'Fill in the details. The official letter on the right updates as you type.'
-        }
+        subtitle="No account needed. Fill in your details; the official letter on the right updates as you type."
         actions={
           <Button variant="ghost" onClick={() => navigate(back)}>
-            {intern ? 'Back' : 'Back to my requests'}
+            Back
           </Button>
         }
       />
@@ -181,20 +132,31 @@ function RequestForm({ filer, existing }: { filer: User | null; existing: Absenc
 
       <div className="workspace">
         <div className="stack">
-          <Card title="1. Your details" description={intern ? 'Printed on the letter: your name. Your department is for HR.' : 'Your position prints under your name. Check it on every letter.'}>
-            <div className="grid-2">
-              {intern ? (
+          <Card
+            title="1. Your details"
+            description={employee ? 'Your name and position print on the letter. Your department is for HR.' : 'Your name prints on the letter. Your department is for HR.'}
+          >
+            <div className="stack">
+              <div className="field">
+                <span className="field__label">Intern or employee?</span>
+                <Segmented<MemberType>
+                  label="Intern or employee?"
+                  value={input.memberType}
+                  options={[
+                    ['intern', 'Intern'],
+                    ['employee', 'Employee'],
+                  ]}
+                  onChange={setMemberType}
+                />
+                <span className="field__hint">Picks the letter's wording and who notes it.</span>
+              </div>
+              <div className="grid-2">
                 <TextInput label="Full name" value={input.name} onChange={(e) => set('name', e.target.value)} autoComplete="name" placeholder="e.g. Juan A. Dela Cruz" required />
-              ) : (
-                <div className="field">
-                  <span className="field__label">Name</span>
-                  <span className="cell-main">{filer.name}</span>
-                </div>
-              )}
-              {intern ? null : (
-                <TextInput label="Position" value={input.position} onChange={(e) => set('position', e.target.value)} placeholder="e.g. Operations Associate" required />
-              )}
-              <TextInput label="Department" value={input.department} onChange={(e) => set('department', e.target.value)} placeholder="e.g. Information Technology" required />
+                {employee ? (
+                  <TextInput label="Position" value={input.position} onChange={(e) => set('position', e.target.value)} placeholder="e.g. Operations Associate" required />
+                ) : null}
+                <TextInput label="Department" value={input.department} onChange={(e) => set('department', e.target.value)} placeholder="e.g. Information Technology" required />
+              </div>
             </div>
           </Card>
 
@@ -223,27 +185,19 @@ function RequestForm({ filer, existing }: { filer: User | null; existing: Absenc
                   {input.groupMembers.map((m, i) => (
                     <div key={i} className="group-member">
                       <div className="group-member__head">
-                        {m.uid ? (
-                          <div>
-                            <div className="cell-main">{m.name}</div>
-                            <div className="cell-sub">{[m.position, m.department].filter(Boolean).join(' · ') || '—'}</div>
-                          </div>
-                        ) : (
-                          <div className="stack stack--tight" style={{ flex: 1 }}>
-                            <input className="field__input" placeholder="Full name *" aria-label="Full name" value={m.name} onChange={(e) => setMember(i, { name: e.target.value })} />
-                            {intern ? (
-                              <input
-                                className="field__input"
-                                placeholder="Department (blank: same as yours)"
-                                aria-label="Department"
-                                value={m.department}
-                                onChange={(e) => setMember(i, { department: e.target.value })}
-                              />
-                            ) : (
-                              <input className="field__input" placeholder="Position" aria-label="Position" value={m.position} onChange={(e) => setMember(i, { position: e.target.value })} />
-                            )}
-                          </div>
-                        )}
+                        <div className="stack stack--tight" style={{ flex: 1 }}>
+                          <input className="field__input" placeholder="Full name *" aria-label="Full name" value={m.name} onChange={(e) => setMember(i, { name: e.target.value })} />
+                          {employee ? (
+                            <input className="field__input" placeholder="Position" aria-label="Position" value={m.position} onChange={(e) => setMember(i, { position: e.target.value })} />
+                          ) : null}
+                          <input
+                            className="field__input"
+                            placeholder="Department (blank: same as yours)"
+                            aria-label="Department"
+                            value={m.department}
+                            onChange={(e) => setMember(i, { department: e.target.value })}
+                          />
+                        </div>
                         <Button size="small" variant="ghost" onClick={() => set('groupMembers', input.groupMembers.filter((_, j) => j !== i))}>
                           Remove
                         </Button>
@@ -251,35 +205,11 @@ function RequestForm({ filer, existing }: { filer: User | null; existing: Absenc
                       {digital ? <SignaturePad small label={m.name || 'This person'} value={m.signature} onChange={(sig) => setMember(i, { signature: sig })} /> : null}
                     </div>
                   ))}
-                  {intern ? (
-                    <div>
-                      <Button size="small" variant="ghost" onClick={addManual}>
-                        Add a person
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="row">
-                        <select className="field__select" style={{ flex: 1, minWidth: 200 }} aria-label="Choose an employee to add" value={addPick} onChange={(e) => setAddPick(e.target.value)}>
-                          <option value="">{addable.length ? 'Choose an employee…' : 'Everyone in the list is already added'}</option>
-                          {addable.map((u) => (
-                            <option key={u.uid} value={u.uid}>
-                              {u.name}
-                              {u.position ? ` — ${u.position}` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <Button size="small" variant="ghost" onClick={addFromList}>
-                          Add
-                        </Button>
-                      </div>
-                      <div>
-                        <Button size="small" variant="link" onClick={addManual}>
-                          Add someone not in the list
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                  <div>
+                    <Button size="small" variant="ghost" onClick={addPerson}>
+                      Add a person
+                    </Button>
+                  </div>
                 </div>
               ) : null}
 
@@ -351,12 +281,6 @@ function RequestForm({ filer, existing }: { filer: User | null; existing: Absenc
                 </div>
               ) : null}
 
-              {conflict ? (
-                <Notice tone="danger" live>
-                  {conflictMessage(conflict, filerKey(draft))}
-                </Notice>
-              ) : null}
-
               <div className="field">
                 <label className="field__label" htmlFor="f-category">
                   Reason category <span className="muted small">(for HR, not printed)</span>
@@ -405,27 +329,7 @@ function RequestForm({ filer, existing }: { filer: User | null; existing: Absenc
                 onChange={(v) => setMethod(v === 'digital' ? 'digital' : wetDelivery)}
               />
               {digital ? (
-                <>
-                  <SignaturePad
-                    label="Your signature"
-                    value={input.internSignature}
-                    onChange={(sig) => set('internSignature', sig)}
-                    allowUpload
-                    extra={
-                      filer?.savedSignature ? (
-                        <Button size="small" variant="ghost" onClick={() => set('internSignature', filer.savedSignature ?? '')}>
-                          Use saved signature
-                        </Button>
-                      ) : null
-                    }
-                  />
-                  {intern ? null : (
-                    <label className="check">
-                      <input type="checkbox" checked={saveSig} onChange={(e) => setSaveSig(e.target.checked)} />
-                      Save this signature to my profile for next time
-                    </label>
-                  )}
-                </>
+                <SignaturePad label="Your signature" value={input.internSignature} onChange={(sig) => set('internSignature', sig)} allowUpload />
               ) : (
                 <div className="stack">
                   <ol className="stack stack--tight" style={{ paddingLeft: 20 }}>
@@ -484,16 +388,11 @@ function RequestForm({ filer, existing }: { filer: User | null; existing: Absenc
             </Notice>
           ) : null}
           <div className="row">
-            {isPending || intern ? null : (
-              <Button variant="ghost" busy={busy === 'draft'} disabled={busy !== null} onClick={() => void save('draft')}>
-                Save as draft
-              </Button>
-            )}
-            <Button variant="primary" busy={busy === 'submitted'} disabled={busy !== null} onClick={() => void save('submitted')}>
+            <Button variant="primary" busy={busy} onClick={() => void send()}>
               {isPending ? 'Save changes' : existing?.status === 'returned' ? 'Sign and resubmit' : 'Sign and submit'}
             </Button>
           </div>
-          {intern && !existing ? <p className="small muted">After you submit you get a letter code. Write it down: it is the only way back to your letter.</p> : null}
+          {!existing ? <p className="small muted">After you submit you get a letter code. Write it down: it is the only way back to your letter.</p> : null}
         </div>
 
         <div className="preview" aria-label="Letter preview">
