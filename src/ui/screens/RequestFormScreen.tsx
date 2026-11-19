@@ -70,6 +70,8 @@ function RequestForm({ existing }: { existing: AbsenceRequest | null }) {
   const digital = input.signatureMethod === 'digital';
   const full = input.groupMembers.length + 1 >= MAX_GROUP_SIZE;
   const back = existing?.accessCode ? paths.letter(existing.accessCode) : paths.home;
+  const presetCategory = REASON_CATEGORIES.some((c) => c !== 'Other' && c === input.reasonCategory);
+  const categoryChoice = presetCategory ? input.reasonCategory : 'Other';
 
   const addPerson = () => {
     if (full) {
@@ -285,13 +287,25 @@ function RequestForm({ existing }: { existing: AbsenceRequest | null }) {
                 <label className="field__label" htmlFor="f-category">
                   Reason category <span className="muted small">(for HR, not printed)</span>
                 </label>
-                <select id="f-category" className="field__select" value={input.reasonCategory} onChange={(e) => set('reasonCategory', e.target.value)}>
+                <select id="f-category" className="field__select" value={categoryChoice} onChange={(e) => set('reasonCategory', e.target.value)}>
                   {REASON_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>
                   ))}
                 </select>
+                {categoryChoice === 'Other' ? (
+                  <input
+                    id="f-category-other"
+                    className="field__input"
+                    style={{ marginTop: 'var(--space-3)' }}
+                    maxLength={60}
+                    aria-label="Specify reason category"
+                    placeholder="Type your reason category (e.g. Government errand, Transportation)"
+                    value={input.reasonCategory === 'Other' ? '' : input.reasonCategory}
+                    onChange={(e) => set('reasonCategory', e.target.value || 'Other')}
+                  />
+                ) : null}
               </div>
 
               <div className="field">

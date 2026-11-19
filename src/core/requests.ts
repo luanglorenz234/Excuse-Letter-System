@@ -241,7 +241,7 @@ export function buildDraft(input: DraftInput, base: AbsenceRequest | null, now: 
     shift: input.type === 'half' ? input.shift : null,
     timeRange: input.type === 'half' ? input.timeRange : null,
     hoursImpact: days * 8,
-    reasonCategory: input.reasonCategory,
+    reasonCategory: input.reasonCategory.trim() || 'Other',
     reasonDetails: input.reasonDetails,
     signatureMethod: input.signatureMethod,
     internSignature: input.signatureMethod === 'digital' ? input.internSignature : '',

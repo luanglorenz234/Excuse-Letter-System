@@ -10,11 +10,18 @@ import { useApp } from '../state/AppState';
 import { paths } from '../state/paths';
 import { PaperTag, StatusPill, datesText, typeText } from '../shared';
 
+const PRESET_REASONS = new Set<string>(REASON_CATEGORIES.filter((c) => c !== 'Other'));
+
 /** Every request but drafts, waiting ones first; and the same rows the CSV export writes. */
 export function queueRows(all: readonly AbsenceRequest[], status: string, reason: string, dept: string): AbsenceRequest[] {
   return all
     .filter((r) => r.status !== 'draft')
-    .filter((r) => (status === 'all' || r.status === status) && (reason === 'all' || r.reasonCategory === reason) && (dept === 'all' || r.snapshot.department === dept))
+    .filter(
+      (r) =>
+        (status === 'all' || r.status === status) &&
+        (reason === 'all' || (reason === 'Other' ? !PRESET_REASONS.has(r.reasonCategory) : r.reasonCategory === reason)) &&
+        (dept === 'all' || r.snapshot.department === dept),
+    )
     .sort((a, b) => Number(b.status === 'submitted') - Number(a.status === 'submitted') || b.updatedAt.localeCompare(a.updatedAt));
 }
 
