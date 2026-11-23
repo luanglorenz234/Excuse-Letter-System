@@ -143,24 +143,24 @@ export function AppShell() {
 
   return (
     <div className="shell">
-      <Sidebar
-        nav={nav}
-        currentKey={navKeyFor(location.pathname)}
-        user={{ name: user.name, role: app.isOfficer ? 'HR officer' : 'hr' }}
-        onNavigate={(key) => {
-          const target = nav.find((n) => n.key === key);
-          if (target) navigate(target.href.slice(1));
-        }}
-        onSignOut={signOut}
-        collapsed={collapsed}
-        onToggleCollapsed={toggleCollapsed}
-        dragRegion={platform.hasWindowControls}
-        animate
-        appVersion={APP_VERSION}
-      />
       <div className="shell__content">
         <TitleBar windowControls={windowControls} />
         {testBar}
+        <Sidebar
+          nav={nav}
+          currentKey={navKeyFor(location.pathname)}
+          user={{ name: user.name, role: app.isOfficer ? 'HR officer' : 'hr' }}
+          onNavigate={(key) => {
+            const target = nav.find((n) => n.key === key);
+            if (target) navigate(target.href.slice(1));
+          }}
+          onSignOut={signOut}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+          dragRegion={platform.hasWindowControls}
+          animate
+          appVersion={APP_VERSION}
+        />
         <main className="shell__main" id="main">
           <Routes>
             <Route path={paths.queue} element={<QueueScreen />} />

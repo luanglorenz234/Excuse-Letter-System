@@ -1,7 +1,7 @@
-/* The window: the sidebar on the left, the content beside it. Same layout as APG Post-It. */
+/* The window: full-width content under the top executive navigation bar. */
 .shell {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   min-height: 100%;
 }
 

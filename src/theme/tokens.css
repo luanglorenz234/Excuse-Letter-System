@@ -24,41 +24,43 @@
 :root[data-theme="light"] [data-theme="dark"] {
   color-scheme: dark;
 
-  /* ---- surfaces: Premier Navy & Champagne Gold dark palette ---- */
-  --bg: #0b1320;
-  --surface: #121e31;
-  --surface-raised: #192942;
-  --input-bg: #070d17;
-  --card-bg: linear-gradient(180deg, #17263c 0%, #121e31 100%);
-  --tip-bg: #1e314d;
-  --top-bar-bg: rgba(11, 19, 32, 0.94);
-  --viewer-bg: rgba(5, 10, 18, 0.94);
-  --inset: rgba(0, 0, 0, 0.35);
+  /* ---- surfaces: neutral greys on an OLED charcoal. No warm tint. ----
+     Each step up is lighter, so a card separates from the page by its fill,
+     not only by its edge. */
+  --bg: #121212;
+  --surface: #1a1a1a;
+  --surface-raised: #222222;
+  --input-bg: #0c0c0c;
+  --card-bg: linear-gradient(180deg, #1e1e1e 0%, #1a1a1a 100%);
+  --tip-bg: #2a2a2a;
+  --top-bar-bg: rgba(18, 18, 18, 0.94);
+  --viewer-bg: rgba(0, 0, 0, 0.94);
+  --inset: rgba(0, 0, 0, 0.3);
   --inset-edge: rgba(255, 255, 255, 0.08);
 
   /* ---- text ---- */
-  --text: #f0f4f8;
-  --text-label: #d5e0ed;
-  --text-muted: #9fb1c9;
-  --placeholder: #6c809a;
-  --zero-text: #495a73;
+  --text: #e0e0e0;
+  --text-label: #cccccc;
+  --text-muted: #b0b0b0;
+  --placeholder: #8c8c8c;
+  --zero-text: #5c5c5c;
 
-  /* ---- edges ---- */
-  --border-soft: #1d2d44;
-  --border: #283b57;
-  --button-edge: #344c6e;
-  --border-strong: #46628a;
-  --pick-edge: #6b88b0;
-  --row-hover: rgba(229, 193, 88, 0.05);
+  /* ---- edges: neutral grey, never gold ---- */
+  --border-soft: #2e2e2e;
+  --border: #444444;
+  --button-edge: #4d4d4d;
+  --border-strong: #5c5c5c;
+  --pick-edge: #888888;
+  --row-hover: rgba(255, 255, 255, 0.03);
   --outline-shape: rgba(255, 255, 255, 0.07);
-  --card-edge: linear-gradient(180deg, #324a6b 0%, #23354f 25%, #1d2d44 100%);
+  --card-edge: linear-gradient(180deg, #444444 0%, #333333 25%, #2e2e2e 100%);
 
-  /* ---- gold: Champagne Gold primary accent ---- */
-  --gold: #e5c158;
-  --gold-edge: rgba(229, 193, 88, 0.55);
-  --gold-soft: rgba(229, 193, 88, 0.15);
-  --on-gold: #0b1320;
-  --gold-gradient: linear-gradient(135deg, #f7df8e 0%, #e5c158 45%, #b88d28 100%);
+  /* ---- gold: brand, the primary action, selection, focus ---- */
+  --gold: #e0b84a;
+  --gold-edge: rgba(224, 184, 74, 0.55);
+  --gold-soft: rgba(224, 184, 74, 0.12);
+  --on-gold: #121212;
+  --gold-gradient: linear-gradient(135deg, #f6dc8a 0%, #e0b84a 45%, #b98a26 100%);
 
   /* ---- status: each tint is the family's own hue at a low alpha, so on a
      neutral grey it reads as that hue, not as brown ---- */
