@@ -1,3 +1,4 @@
+import logoUrl from '@/assets/logo.png';
 import './TitleBar.css';
 
 export interface WindowControlsProps {
@@ -41,7 +42,10 @@ export function TitleBar({ brandHref, windowControls }: TitleBarProps) {
     <header className={classes} {...drag}>
       {brandHref !== undefined ? (
         <a className="titlebar__brand brand-word" href={brandHref}>
-          <span className="brand-word__company">APG</span> <span className="brand-word__product">Excuse Letters</span>
+          <img className="titlebar__logo" src={logoUrl} alt="" />
+          <span>
+            <span className="brand-word__company">APG</span> <span className="brand-word__product">Excuse Letters</span>
+          </span>
         </a>
       ) : null}
       {windowControls ? <WindowControls {...windowControls} /> : null}

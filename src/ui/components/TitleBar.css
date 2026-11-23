@@ -19,6 +19,19 @@
   color: var(--gold);
 }
 
+.titlebar__brand {
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.titlebar__logo {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex: none;
+}
+
 /* ---- the strip ----------------------------------------------------------- */
 
 /* Sticks to the top of the content while the document scrolls under it. */

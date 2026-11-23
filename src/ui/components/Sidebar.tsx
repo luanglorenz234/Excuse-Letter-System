@@ -1,4 +1,5 @@
 import { useId, type MouseEvent } from 'react';
+import logoUrl from '@/assets/logo.png';
 import { initials, roleWord } from '@/core/types';
 import { Icon, type IconName } from './Icon';
 import { Badge } from './Pill';
@@ -64,9 +65,7 @@ export function Sidebar({
     <header id={`${id}-sidebar`} className="sidebar" aria-label="Workspace navigation">
       <div className="sidebar__brand-row" {...drag}>
         <a className="sidebar__brand brand-word" href={brandHref} aria-label="APG Excuse Letters">
-          <span className="sidebar__monogram" aria-hidden="true">
-            A
-          </span>
+          <img className="sidebar__logo" src={logoUrl} alt="" />
           <span className="sidebar__brand-text">
             <span className="brand-word__company">ALPHA PREMIER</span>
             <span className="brand-word__product">Excuse Letters</span>

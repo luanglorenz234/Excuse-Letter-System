@@ -38,19 +38,12 @@
   text-decoration: none;
 }
 
-.sidebar__monogram {
-  display: grid;
-  place-items: center;
+.sidebar__logo {
   width: 34px;
   height: 34px;
-  border: 1.5px solid var(--gold);
   border-radius: var(--radius-chip);
-  background: linear-gradient(135deg, rgba(224, 184, 74, 0.2), rgba(18, 18, 18, 0.9));
-  color: var(--gold);
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
+  object-fit: cover;
+  flex: none;
 }
 
 .sidebar__brand-text {
