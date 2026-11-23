@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { requestsCsv } from '@/core/csv';
 import { todayYmd } from '@/core/dates';
-import { isGroupRequest, namesAll, namesShort, requestMembers } from '@/core/requests';
+import { formatAccessCode, isGroupRequest, namesAll, namesShort, requestMembers } from '@/core/requests';
 import { REASON_CATEGORIES, type AbsenceRequest, type RequestStatus } from '@/core/types';
 import { Button, Card, EmptyState } from '../components';
 import { PageHeader } from '../App';
@@ -91,22 +91,33 @@ export function QueueScreen() {
         }
       />
 
-      <div className="stat-grid">
+      <div className="stat-grid" role="group" aria-label="Filter by status">
         {(
           [
-            ['Waiting for review', count('submitted')],
-            ['Approved', count('approved')],
-            ['Returned', count('returned')],
-            ['Declined', count('declined')],
+            ['submitted', 'Waiting for review', count('submitted')],
+            ['approved', 'Approved', count('approved')],
+            ['returned', 'Returned', count('returned')],
+            ['declined', 'Declined', count('declined')],
           ] as const
-        ).map(([label, value]) => (
-          <Card key={label} padding="tight">
-            <div className="stat">
-              <span className="stat__value tabular">{value}</span>
-              <span className="stat__label">{label}</span>
-            </div>
-          </Card>
-        ))}
+        ).map(([key, label, value]) => {
+          const active = status === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`stat-tab${active ? ' stat-tab--active' : ''}`}
+              aria-pressed={active}
+              onClick={() => setStatus(active ? 'all' : key)}
+            >
+              <Card padding="tight">
+                <div className="stat">
+                  <span className="stat__value tabular">{value}</span>
+                  <span className="stat__label">{label}</span>
+                </div>
+              </Card>
+            </button>
+          );
+        })}
       </div>
 
       <Card>
@@ -143,7 +154,15 @@ export function QueueScreen() {
                     >
                       <td>
                         <div className="cell-main">{r.refNo ?? 'Pending'}</div>
-                        <div className="cell-sub">{r.id}</div>
+                        <div className="cell-sub">
+                          {r.accessCode ? (
+                            <>
+                              <code>{formatAccessCode(r.accessCode)}</code> · {r.id}
+                            </>
+                          ) : (
+                            r.id
+                          )}
+                        </div>
                       </td>
                       <td>
                         <div className="cell-main">{namesShort(r)}</div>

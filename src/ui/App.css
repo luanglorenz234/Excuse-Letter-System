@@ -147,6 +147,36 @@
   color: var(--text-muted);
   font-size: var(--text-caption);
 }
+.stat-tab {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-card);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.stat-tab:active {
+  transform: scale(0.99);
+}
+.stat-tab .card {
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.stat-tab:hover .card {
+  border-color: var(--gold-edge);
+}
+.stat-tab--active .card {
+  border-color: var(--gold);
+  background: var(--gold-soft);
+  box-shadow: 0 0 0 1px var(--gold-edge);
+}
+.stat-tab--active .stat__value {
+  color: var(--gold);
+}
 
 /* ---- form controls the component kit doesn't have ------------------------ */
 

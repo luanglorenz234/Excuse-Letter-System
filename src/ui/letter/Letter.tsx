@@ -49,21 +49,9 @@ function Segments({ parts, highlight }: { parts: readonly Segment[]; highlight: 
   );
 }
 
-/** The space above a name: a drawn signature, a note about a hand-signed copy, or nothing. */
-function MemberSignature({ req, member, first, blank, clean }: { req: AbsenceRequest; member: LetterMember; first: boolean; blank: boolean; clean: boolean }) {
-  if (blank) return <div className="a4-sig" />;
-  if (req.signatureMethod !== 'digital') {
-    if (!first) return <div className="a4-sig" />;
-    const note =
-      req.signatureMethod === 'wet-upload'
-        ? 'Signed by hand · photo on file with HR'
-        : `Signed by hand · paper copy ${req.paperCopy?.status === 'received' ? 'received by HR' : 'to be handed in to HR'}`;
-    return (
-      <div className="a4-sig">
-        <span className="a4-sig__note">{note}</span>
-      </div>
-    );
-  }
+/** The space above a name: a drawn signature, or blank space for wet signatures. */
+function MemberSignature({ req, member, blank, clean }: { req: AbsenceRequest; member: LetterMember; blank: boolean; clean: boolean }) {
+  if (blank || req.signatureMethod !== 'digital') return <div className="a4-sig" />;
   const src = safeImageSrc(member.signature);
   return (
     <div className="a4-sig">
@@ -88,6 +76,7 @@ export function Letter({ request: req, settings, highlight = true, clean = false
   const members = requestMembers(req);
   const letterYmd = letterDateYmd(req);
   const approved = req.status === 'approved';
+  const wet = req.signatureMethod !== 'digital';
   const hrSig = approved ? safeImageSrc(req.review?.hrSignature) : '';
   const content = useRef<HTMLDivElement>(null);
 
@@ -157,7 +146,7 @@ export function Letter({ request: req, settings, highlight = true, clean = false
         <div className={`a4-signers${members.length > 1 ? ' a4-signers--group' : ''}`} {...block('signers')}>
           {members.map((m, i) => (
             <div key={i} className="a4-signer">
-              <MemberSignature req={req} member={m} first={i === 0} blank={blankSignature} clean={clean} />
+              <MemberSignature req={req} member={m} blank={blankSignature} clean={clean} />
               <div className="a4-line">{m.name || '[Name]'}</div>
               {employee && m.position ? <div className="a4-line">{m.position}</div> : null}
             </div>
@@ -173,7 +162,7 @@ export function Letter({ request: req, settings, highlight = true, clean = false
                 <div className="a4-sig">
                   {inApp && hrSig && !blankSignature ? (
                     <img src={hrSig} alt={`Signature of ${n.name}`} />
-                  ) : clean || blankSignature ? null : inApp ? (
+                  ) : clean || blankSignature || wet ? null : inApp ? (
                     approved ? null : <span className="a4-sig__placeholder">[Signed by HR on approval]</span>
                   ) : (
                     <span className="a4-sig__placeholder">[Signs the printed copy]</span>
