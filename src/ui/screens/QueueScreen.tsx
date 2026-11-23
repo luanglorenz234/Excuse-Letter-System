@@ -105,7 +105,7 @@ export function QueueScreen() {
             <button
               key={key}
               type="button"
-              className={`stat-tab${active ? ' stat-tab--active' : ''}`}
+              className={`stat-tab stat-tab--${key}${active ? ' stat-tab--active' : ''}`}
               aria-pressed={active}
               onClick={() => setStatus(active ? 'all' : key)}
             >

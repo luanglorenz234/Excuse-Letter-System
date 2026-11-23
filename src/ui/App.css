@@ -174,8 +174,25 @@
   background: var(--gold-soft);
   box-shadow: 0 0 0 1px var(--gold-edge);
 }
-.stat-tab--active .stat__value {
-  color: var(--gold);
+.stat-tab--submitted .stat__value,
+.stat-tab--submitted .stat__label {
+  color: var(--warn-text);
+}
+.stat-tab--approved .stat__value,
+.stat-tab--approved .stat__label {
+  color: var(--ok-text);
+}
+.stat-tab--returned .stat__value,
+.stat-tab--returned .stat__label {
+  color: #f6dc8a;
+}
+:root[data-theme="light"] .stat-tab--returned .stat__value,
+:root[data-theme="light"] .stat-tab--returned .stat__label {
+  color: #a16207;
+}
+.stat-tab--declined .stat__value,
+.stat-tab--declined .stat__label {
+  color: var(--danger-text);
 }
 
 /* ---- form controls the component kit doesn't have ------------------------ */
