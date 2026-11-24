@@ -77,6 +77,7 @@
 /* ---- Centered Navigation Tabs -------------------------------------------- */
 
 .sidebar__nav {
+  position: relative;
   display: flex;
   align-self: stretch;
   align-items: stretch;
@@ -125,15 +126,15 @@
   font-weight: var(--weight-heading);
 }
 
-.sidebar__item[aria-current]:not([aria-current="false"])::after {
-  content: "";
+.sidebar__indicator {
   position: absolute;
-  right: var(--space-4);
   bottom: 0;
-  left: var(--space-4);
+  left: 0;
   height: 2.5px;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--gold);
+  pointer-events: none;
+  transition: transform var(--dur-move) var(--ease-out), width var(--dur-move) var(--ease-out);
 }
 
 .sidebar__icon {

@@ -1,4 +1,4 @@
-import { useId, type MouseEvent } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import logoUrl from '@/assets/logo.png';
 import { initials, roleWord } from '@/core/types';
 import { Icon, type IconName } from './Icon';
@@ -60,6 +60,31 @@ export function Sidebar({
 }: SidebarProps) {
   const id = useId();
   const drag = dragRegion ? { 'data-tauri-drag-region': true } : {};
+  const listRef = useRef<HTMLUListElement>(null);
+  const itemRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
+  const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null);
+
+  const measure = useCallback(() => {
+    const el = currentKey ? itemRefs.current[currentKey] : null;
+    if (!el || el.offsetWidth === 0) {
+      setIndicator(null);
+      return;
+    }
+    const inset = 8;
+    setIndicator({ left: el.offsetLeft + inset, width: Math.max(0, el.offsetWidth - inset * 2) });
+  }, [currentKey]);
+
+  useLayoutEffect(() => {
+    measure();
+  }, [measure, nav]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [measure]);
 
   return (
     <header id={`${id}-sidebar`} className="sidebar" aria-label="Workspace navigation">
@@ -75,10 +100,13 @@ export function Sidebar({
       </div>
 
       <nav className="sidebar__nav" aria-label={navLabel}>
-        <ul className="sidebar__list">
+        <ul ref={listRef} className="sidebar__list">
           {nav.map((item) => (
             <li key={item.key}>
               <a
+                ref={(node) => {
+                  itemRefs.current[item.key] = node;
+                }}
                 className="sidebar__item"
                 href={item.href}
                 aria-current={item.key === currentKey ? 'page' : undefined}
@@ -95,6 +123,13 @@ export function Sidebar({
             </li>
           ))}
         </ul>
+        {indicator ? (
+          <span
+            className="sidebar__indicator"
+            aria-hidden="true"
+            style={{ transform: `translateX(${indicator.left}px)`, width: indicator.width }}
+          />
+        ) : null}
       </nav>
 
       <div className="sidebar__footer">
