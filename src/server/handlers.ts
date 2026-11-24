@@ -77,9 +77,11 @@ export const MAX_LETTER_SIZE = 1_000_000;
 /** The longest absence one letter covers: about three months of weekdays. Longer leave goes through HR. */
 export const MAX_DAYS = 60;
 
+const UTF8 = new TextEncoder();
+
 function tooBig(changes: Changes): string | null {
   for (const r of changes.requests ?? []) {
-    if (JSON.stringify(r).length > MAX_LETTER_SIZE) {
+    if (UTF8.encode(JSON.stringify(r)).length > MAX_LETTER_SIZE) {
       return 'This letter is too large to save. Use a smaller photo of the signed letter, or fewer drawn signatures.';
     }
   }
@@ -242,6 +244,7 @@ export async function publicCall(store: Store, raw: unknown, now: Date, ids: Ids
 
 export type HrCall =
   | { readonly action: 'load' }
+  | { readonly action: 'get'; readonly id: string }
   | { readonly action: 'decide'; readonly id: string; readonly decision: Decision; readonly remarks: string }
   | { readonly action: 'paper'; readonly id: string; readonly received: boolean }
   | { readonly action: 'addComment'; readonly id: string; readonly comment: unknown }
@@ -267,18 +270,34 @@ function textIn(v: unknown, what: string, max: number): string {
   return v;
 }
 
+/** Strips heavy hand-signed photos and duplicated HR signatures from the queue list; `get` loads the full letter when opened. */
+export function summaryOf(req: AbsenceRequest): AbsenceRequest {
+  return {
+    ...req,
+    wetCopyImage: '',
+    review: req.review ? { ...req.review, hrSignature: null } : null,
+  };
+}
+
 export async function hrCall(store: Store, hr: User, raw: unknown, now: Date, ids: Ids = RANDOM_IDS): Promise<Reply> {
   try {
     const { action, call } = asCall(raw);
     if (action === 'load') {
       const settings = normalizeSettings(await store.settings());
       const value: HrData = {
-        requests: await store.allRequests(),
+        requests: (await store.allRequests()).map(summaryOf),
         settings,
         isOfficer: isHrOfficer(settings.letter, hr),
         mayEditSettings: mayEditSettings(settings.letter, hr),
       };
       return { ok: true, message: '', value };
+    }
+
+    if (action === 'get') {
+      const id = parseId(field(call, 'id'));
+      const req = await store.transaction((tx) => tx.request(id));
+      if (!req) return refuse('That letter is gone.');
+      return { ok: true, message: '', value: req, changes: { requests: [req] } };
     }
 
     if (action === 'saveSettings') {

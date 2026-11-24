@@ -151,13 +151,20 @@ describe('the absence form, no sign-in', () => {
     expect(reply).toMatchObject({ ok: false, error: 'One letter can cover at most 60 weekdays. For a longer leave, talk to HR.' });
   });
 
-  it('keeps a letter under what Firestore can hold', async () => {
+  it('keeps a letter under what Firestore can hold (UTF-8 bytes)', async () => {
     const store = new MemoryStore(seedDb());
     const big = `data:image/png;base64,${'A'.repeat(190_000)}`;
     const people = Array.from({ length: 5 }, (_, i) => ({ uid: null, name: `Person ${i}`, internId: '', position: '', department: '', memberType: 'intern', signature: big }));
     const reply = await publicCall(store, { action: 'submit', input: form({ internSignature: big, groupMode: true, groupMembers: people as never }) }, NOW, ids());
     expect(reply).toMatchObject({ ok: false });
     expect(!reply.ok && reply.error).toMatch(/^This letter is too large/);
+
+    // 3-byte UTF-8 characters across group signatures: ~420k UTF-16 chars (< 1,000,000) but > 1,000,000 UTF-8 bytes.
+    const multiByte = `data:image/svg+xml;utf8,${'–'.repeat(70_000)}`;
+    const mbPeople = Array.from({ length: 5 }, (_, i) => ({ uid: null, name: `MB ${i}`, internId: '', position: '', department: '', memberType: 'intern', signature: multiByte }));
+    const utf8Reply = await publicCall(store, { action: 'submit', input: form({ internSignature: multiByte, groupMode: true, groupMembers: mbPeople as never }) }, NOW, ids());
+    expect(utf8Reply).toMatchObject({ ok: false });
+    expect(!utf8Reply.ok && utf8Reply.error).toMatch(/^This letter is too large/);
   });
 
   it('files group members without accounts, whatever the form says', async () => {
@@ -177,6 +184,23 @@ describe('HR, signed in', () => {
     expect(officer).toMatchObject({ isOfficer: true, mayEditSettings: true });
     const other = ok<HrData>(await hrCall(store, OTHER_HR, { action: 'load' }, NOW)).value;
     expect(other).toMatchObject({ isOfficer: false, mayEditSettings: false });
+  });
+
+  it('strips heavy images in load and returns the full letter on get', async () => {
+    const store = new MemoryStore(seedDb());
+    const submitted = letterOf(
+      await publicCall(store, { action: 'submit', input: form({ signatureMethod: 'wet-upload', internSignature: '', wetCopyImage: SIG }) }, NOW, ids()),
+    );
+    const list = ok<HrData>(await hrCall(store, OFFICER, { action: 'load' }, NOW)).value.requests;
+    const listedWet = list.find((r) => r.id === submitted.id);
+    const listedApproved = list.find((r) => r.id === 'req-2026-001');
+    expect(listedWet?.wetCopyImage).toBe('');
+    expect(listedApproved?.review?.hrSignature).toBeNull();
+
+    const fullWet = ok<AbsenceRequest>(await hrCall(store, OFFICER, { action: 'get', id: submitted.id }, NOW)).value;
+    const fullApproved = ok<AbsenceRequest>(await hrCall(store, OFFICER, { action: 'get', id: 'req-2026-001' }, NOW)).value;
+    expect(fullWet.wetCopyImage).toBe(SIG);
+    expect(fullApproved.review?.hrSignature).toBeTruthy();
   });
 
   it('lets only the HR officer approve, and numbers the letter', async () => {

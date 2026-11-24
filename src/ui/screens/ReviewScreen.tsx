@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { openComments, type NewComment } from '@/core/comments';
 import { formatShortDate } from '@/core/dates';
@@ -52,6 +52,17 @@ export function ReviewScreen() {
   const [busy, setBusy] = useState<Decision | 'paper' | 'resolve' | null>(null);
   const [photo, setPhoto] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
+  const fetched = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!req || fetched.current === req.id) return;
+    const needsFull =
+      (req.signatureMethod === 'wet-upload' && !req.wetCopyImage) ||
+      (req.status === 'approved' && Boolean(req.review) && !req.review?.hrSignature);
+    if (!needsFull) return;
+    fetched.current = req.id;
+    void app.act({ action: 'get', id: req.id });
+  }, [req, app]);
 
   const others = useMemo(() => {
     if (!req) return [];
