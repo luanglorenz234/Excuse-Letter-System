@@ -38,9 +38,10 @@
   text-decoration: none;
 }
 
+/* 32px: the size every APG system shows its own icon at, beside its name. */
 .sidebar__logo {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-chip);
   object-fit: cover;
   flex: none;
