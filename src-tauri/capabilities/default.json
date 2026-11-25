@@ -6,9 +6,6 @@
   "permissions": [
     "core:default",
 
-    "allow-db-load",
-    "allow-db-commit",
-    "allow-db-reset",
     "allow-save-text-file",
 
     {
