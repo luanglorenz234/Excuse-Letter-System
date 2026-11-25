@@ -1,0 +1,57 @@
+name: Build Windows Desktop App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Windows Installer (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --no-file-parallelism
+
+      - name: Build Tauri Windows installer
+        run: npm run tauri build -- --bundles nsis --ci
+
+      - name: Upload Windows Setup Installer (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: APG-Excuse-Letters-Windows-Setup
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+      - name: Upload Standalone Portable App (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: APG-Excuse-Letters-Portable-Exe
+          path: src-tauri/target/release/apg-excuse-letters.exe
+          if-no-files-found: error
