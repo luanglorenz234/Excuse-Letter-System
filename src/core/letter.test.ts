@@ -46,6 +46,11 @@ describe('the 2026 letter wording', () => {
   it('half days and several days name the shift or the range', () => {
     const half = request('intern', { type: 'half', date: '2026-10-27', shift: 'afternoon', timeRange: '1:00 PM – 5:00 PM', reasonDetails: 'I have a dental appointment that afternoon.' });
     expect(openingText(half, '2026-10-26')).toContain('on the afternoon of Tuesday, October 27, 2026 (1:00 PM – 5:00 PM) as I have');
+    const halfNoTime = request('intern', { type: 'half', date: '2026-10-27', shift: 'morning', timeRange: '', reasonDetails: 'I have a dental appointment that morning.' });
+    expect(halfNoTime.timeRange).toBeNull();
+    expect(openingText(halfNoTime, '2026-10-26')).toContain('on the morning of Tuesday, October 27, 2026 as I have');
+    expect(openingText(halfNoTime, '2026-10-26')).not.toContain('(');
+    expect(inputFrom(halfNoTime, '2026-10-27', '2026-10-28').timeRange).toBe('');
     const multi = request('intern', { type: 'multi', startDate: '2026-10-27', endDate: '2026-10-29', reasonDetails: 'I have to attend our school retreat.' });
     expect(openingText(multi, '2026-10-26')).toContain('from Tuesday, October 27, 2026 to Thursday, October 29, 2026 (3 days) as I have');
     const employeeMulti = request('employee', { type: 'multi', startDate: '2026-10-27', endDate: '2026-10-29', reasonDetails: 'I have to attend our school retreat.' });

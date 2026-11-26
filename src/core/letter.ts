@@ -7,7 +7,7 @@
 
 import { DEFAULT_FORMATS } from './db';
 import { addDaysYmd, countWeekdays, parseLocalDate, toYmd, todayYmd } from './dates';
-import { DEFAULT_TIME_RANGE, isGroupRequest } from './requests';
+import { isGroupRequest } from './requests';
 import type { AbsenceRequest, FormatWording, LetterSettings, NotedBy } from './types';
 
 /** "November 05, 2026": the new letters pad the day. */
@@ -97,13 +97,16 @@ export function openingSegments(req: AbsenceRequest, letterYmd: string): Segment
 
   if (req.type === 'half') {
     const shift = req.shift ?? 'morning';
+    const range = req.timeRange?.trim();
     t('on the ');
     v(shift);
     t(' of ');
     v(formatLetterDay(req.date));
-    t(' (');
-    v(req.timeRange || DEFAULT_TIME_RANGE[shift]);
-    t(')');
+    if (range) {
+      t(' (');
+      v(range);
+      t(')');
+    }
   } else if (req.type === 'multi') {
     const n = req.startDate && req.endDate ? countWeekdays(req.startDate, req.endDate) : req.days;
     const days = `${n} ${n === 1 ? 'day' : 'days'}`;

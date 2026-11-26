@@ -52,6 +52,7 @@ function RequestForm({ existing }: { existing: AbsenceRequest | null }) {
   const navigate = useNavigate();
   const tomorrow = addDaysYmd(todayYmd(), 1);
   const [input, setInput] = useState<DraftInput>(() => inputFrom(existing, tomorrow, addDaysYmd(tomorrow, 1)));
+  const [showTimeRange, setShowTimeRange] = useState(() => (existing?.type === 'half' ? Boolean(existing.timeRange?.trim()) : true));
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -256,30 +257,59 @@ function RequestForm({ existing }: { existing: AbsenceRequest | null }) {
               )}
 
               {input.type === 'half' ? (
-                <div className="grid-2">
-                  <div className="field">
-                    <label className="field__label" htmlFor="f-shift">
-                      Shift
-                    </label>
-                    <select
-                      id="f-shift"
-                      className="field__select"
-                      value={input.shift}
+                <div className="stack stack--tight">
+                  <div className={showTimeRange ? 'grid-2' : undefined}>
+                    <div className="field">
+                      <label className="field__label" htmlFor="f-shift">
+                        Shift
+                      </label>
+                      <select
+                        id="f-shift"
+                        className="field__select"
+                        value={input.shift}
+                        onChange={(e) => {
+                          const shift = e.target.value === 'afternoon' ? 'afternoon' : 'morning';
+                          setInput((cur) => ({
+                            ...cur,
+                            shift,
+                            timeRange: showTimeRange ? DEFAULT_TIME_RANGE[shift] : '',
+                          }));
+                        }}
+                      >
+                        <option value="morning">Morning</option>
+                        <option value="afternoon">Afternoon</option>
+                      </select>
+                    </div>
+                    {showTimeRange ? (
+                      <div className="field">
+                        <label className="field__label" htmlFor="f-time">
+                          Time range <span className="muted small">(optional)</span>
+                        </label>
+                        <input
+                          id="f-time"
+                          className="field__input"
+                          placeholder={DEFAULT_TIME_RANGE[input.shift]}
+                          value={input.timeRange}
+                          onChange={(e) => set('timeRange', e.target.value)}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={showTimeRange}
                       onChange={(e) => {
-                        const shift = e.target.value === 'afternoon' ? 'afternoon' : 'morning';
-                        setInput((cur) => ({ ...cur, shift, timeRange: DEFAULT_TIME_RANGE[shift] }));
+                        const on = e.target.checked;
+                        setShowTimeRange(on);
+                        setInput((cur) => ({
+                          ...cur,
+                          timeRange: on ? cur.timeRange.trim() || DEFAULT_TIME_RANGE[cur.shift] : '',
+                        }));
                       }}
-                    >
-                      <option value="morning">Morning</option>
-                      <option value="afternoon">Afternoon</option>
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label className="field__label" htmlFor="f-time">
-                      Time range
-                    </label>
-                    <input id="f-time" className="field__input" value={input.timeRange} onChange={(e) => set('timeRange', e.target.value)} />
-                  </div>
+                    />
+                    <span>Include time range on the letter</span>
+                  </label>
                 </div>
               ) : null}
 
