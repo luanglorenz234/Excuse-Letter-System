@@ -11,6 +11,7 @@ import { printLetter } from '../letter/print';
 import { PageHeader } from '../App';
 import { useApp } from '../state/AppState';
 import { paths } from '../state/paths';
+import { rememberRecentLetter } from '../state/recentLetters';
 import { StatusPill, datesText, typeText } from '../shared';
 
 /** What the screen that sent here already has: the letter, and whether it was just sent. */
@@ -88,6 +89,11 @@ export function LetterScreen() {
   const [load, setLetter, retry] = useLetter(code, passed.letter);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const readyLetter = load.state === 'ready' ? load.letter : null;
+  useEffect(() => {
+    if (readyLetter) rememberRecentLetter(app.platform, readyLetter);
+  }, [app.platform, readyLetter]);
 
   if (load.state !== 'ready') return <LetterPlaceholder load={load} retry={retry} />;
   const req = load.letter;

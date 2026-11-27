@@ -338,6 +338,59 @@
 .filters .field {
   min-width: 180px;
 }
+.filters .filters__search {
+  flex: 1 1 260px;
+}
+
+.recent-letters {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.recent-letters__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.recent-chip {
+  display: inline-flex;
+  align-items: center;
+  border: var(--border-width) solid var(--pick-edge);
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.recent-chip:hover {
+  border-color: var(--gold-edge);
+}
+.recent-chip__open,
+.recent-chip__remove {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-caption);
+  cursor: pointer;
+}
+.recent-chip__open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 6px 10px 6px 12px;
+}
+.recent-chip__open code {
+  color: var(--gold);
+  font-weight: 700;
+}
+.recent-chip__remove {
+  padding: 6px 10px 6px 4px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.recent-chip__remove:hover {
+  color: var(--text);
+}
 
 /* ---- signature pads and the letter preview ------------------------------ */
 

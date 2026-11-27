@@ -4,7 +4,7 @@ import { requestsCsv } from '@/core/csv';
 import { todayYmd } from '@/core/dates';
 import { formatAccessCode, isGroupRequest, namesAll, namesShort, requestMembers } from '@/core/requests';
 import { REASON_CATEGORIES, type AbsenceRequest, type RequestStatus } from '@/core/types';
-import { Button, Card, EmptyState } from '../components';
+import { Button, Card, EmptyState, TextInput } from '../components';
 import { PageHeader } from '../App';
 import { useApp } from '../state/AppState';
 import { paths } from '../state/paths';
@@ -12,15 +12,33 @@ import { PaperTag, StatusPill, datesText, typeText } from '../shared';
 
 const PRESET_REASONS = new Set<string>(REASON_CATEGORIES.filter((c) => c !== 'Other'));
 
+function matchesQuery(r: AbsenceRequest, q: string): boolean {
+  if (!q) return true;
+  const code = q.replace(/-/g, '');
+  const fields = [
+    namesAll(r),
+    r.snapshot.department,
+    ...r.groupMembers.map((m) => m.department),
+    r.snapshot.position,
+    r.refNo ?? '',
+    r.id,
+    r.reasonCategory,
+  ];
+  if (fields.some((f) => f.toLowerCase().includes(q))) return true;
+  return Boolean(r.accessCode && code && r.accessCode.toLowerCase().includes(code));
+}
+
 /** Every request but drafts, waiting ones first; and the same rows the CSV export writes. */
-export function queueRows(all: readonly AbsenceRequest[], status: string, reason: string, dept: string): AbsenceRequest[] {
+export function queueRows(all: readonly AbsenceRequest[], status: string, reason: string, dept: string, query = ''): AbsenceRequest[] {
+  const q = query.trim().toLowerCase();
   return all
     .filter((r) => r.status !== 'draft')
     .filter(
       (r) =>
         (status === 'all' || r.status === status) &&
         (reason === 'all' || (reason === 'Other' ? !PRESET_REASONS.has(r.reasonCategory) : r.reasonCategory === reason)) &&
-        (dept === 'all' || r.snapshot.department === dept),
+        (dept === 'all' || r.snapshot.department === dept) &&
+        matchesQuery(r, q),
     )
     .sort((a, b) => Number(b.status === 'submitted') - Number(a.status === 'submitted') || b.updatedAt.localeCompare(a.updatedAt));
 }
@@ -33,10 +51,11 @@ export function QueueScreen() {
   const [status, setStatus] = useState('all');
   const [reason, setReason] = useState('all');
   const [dept, setDept] = useState('all');
+  const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
   const all = useMemo(() => Object.values(app.db.requests).filter((r) => r.status !== 'draft'), [app.db.requests]);
-  const rows = useMemo(() => queueRows(all, status, reason, dept), [all, status, reason, dept]);
+  const rows = useMemo(() => queueRows(all, status, reason, dept, query), [all, status, reason, dept, query]);
   const departments = useMemo(() => [...new Set(all.map((r) => r.snapshot.department).filter(Boolean))].sort(), [all]);
   const count = (s: RequestStatus) => all.filter((r) => r.status === s).length;
 
@@ -123,6 +142,21 @@ export function QueueScreen() {
       <Card>
         <div className="stack">
           <div className="filters">
+            <TextInput
+              id="q-search"
+              className="filters__search"
+              label="Search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Name, department, reference, or code…"
+              end={
+                query ? (
+                  <Button size="small" variant="ghost" type="button" onClick={() => setQuery('')}>
+                    Clear
+                  </Button>
+                ) : null
+              }
+            />
             <Filter id="q-status" label="Status" value={status} onChange={setStatus} options={STATUSES.map((s) => [s, s === 'all' ? 'All statuses' : s === 'submitted' ? 'Waiting' : s[0]!.toUpperCase() + s.slice(1)])} />
             <Filter id="q-reason" label="Reason" value={reason} onChange={setReason} options={[['all', 'All reasons'], ...REASON_CATEGORIES.map((c) => [c, c] as const)]} />
             <Filter id="q-dept" label="Department" value={dept} onChange={setDept} options={[['all', 'All departments'], ...departments.map((d) => [d, d] as const)]} />

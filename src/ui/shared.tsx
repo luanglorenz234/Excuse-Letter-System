@@ -32,7 +32,7 @@ export function PaperTag({ request: r }: { request: AbsenceRequest }) {
   return <div className="cell-sub">{received ? 'Paper copy received' : 'Waiting for paper copy'}</div>;
 }
 
-export function datesText(r: AbsenceRequest): string {
+export function datesText(r: Pick<AbsenceRequest, 'type' | 'date' | 'startDate' | 'endDate' | 'days'>): string {
   if (r.type === 'multi') return `${formatShortDate(r.startDate)} – ${formatShortDate(r.endDate)} (${r.days} day${r.days === 1 ? '' : 's'})`;
   return formatShortDate(r.date);
 }
